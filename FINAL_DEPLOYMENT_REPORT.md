@@ -1,0 +1,21 @@
+# MADEENA TRADERS ERP — FINAL DEPLOYMENT REPORT
+
+The production deployment of the Madeena Traders ERP has been successfully repaired. The application now builds consistently as a Vite SPA and Vercel serves the correct client-side routes, assets, and service worker fallbacks.
+
+Here is the 15-point diagnostic and implementation report as requested:
+
+1. **Root cause of the MIME type Error**: The `@lovable.dev/vite-tanstack-config` was configured to use Nitro SSR for the build. Vercel was receiving a server-rendered `.output` payload, but attempting to serve it statically. This caused the main entry script to fallback to serving `index.html` with a MIME type of `text/html` instead of JavaScript.
+2. **Why CSS was 404ing**: Nitro renames CSS files to `styles-[hash].css` when building for SSR, while Vite SPA outputs `index-[hash].css`. The stale service worker and mismatch between build outputs caused Vercel to serve stale HTML pointing to CSS files that no longer existed.
+3. **Why `/auth` 404ed on refresh**: Because it's a Single Page Application (SPA), Vercel's static file server doesn't inherently know about client-side routes. Without a `vercel.json` rewrites rule, refreshing the browser on `/auth` looked for a literal `/auth/index.html` directory, resulting in a 404.
+4. **What the `@lovable.dev/vite-tanstack-config` actually was doing**: It injects an entire SSR and edge-deployment layer (via Nitro and TanStack Start plugins) intended for Cloudflare or Node environments, not a standard static Vercel SPA.
+5. **How we disabled the Nitro SSR engine for Vercel**: By conditionally modifying `vite.config.ts`. If `process.env.VERCEL` is detected, the build uses a clean, standard Vite config using `TanStackRouterVite` and `@vitejs/plugin-react`, completely stripping away the Nitro and SSR plugins.
+6. **Why Vite PWA caused stale indexing**: A previous deployment injected a Service Worker that aggressively cached `index.html` and assets. Even after pushing fixes, the browser intercepted requests and served the broken, cached HTML rather than fetching the new build from Vercel.
+7. **How the service worker cache was purged**: A dummy `sw.js` and `service-worker.js` script were deployed that immediately forces `self.registration.unregister()` and clears the Cache Storage API. Additionally, an unregister routine was added directly to `src/main.tsx` on boot.
+8. **The exact contents of the deployed `dist` folder**: The output now contains a pure static build: `index.html`, and an `assets/` folder containing precisely generated hashed files (e.g. `index-BPrqHXaG.js`, `index-CLKdYs_A.css`).
+9. **What rewrites were placed in `vercel.json`**: We deployed `{"source": "/((?!assets/|.*\\..*).*)", "destination": "/index.html"}`. This perfectly routes all non-file and non-asset requests back to `index.html` to allow TanStack Router to handle it.
+10. **The role of the `crossorigin` attribute in `index.html`**: The module script tag uses `crossorigin` to comply with strict MIME checking and CORS policies for ES modules fetching dynamic imports.
+11. **Which package manager lockfile was used**: `package-lock.json` was used as the authoritative lockfile. The local build was generated safely via `npm ci` after cleaning all stale node_modules and output directories.
+12. **Why isolated patches were rejected in favor of holistic rebuild**: Manually tweaking `index.html` or CSS names would inevitably break on the next deployment. By establishing a correct Vite config and a declarative `vercel.json`, the deployment pipeline is now robust for all future commits.
+13. **Assurance that the DB/Supabase schemas were untouched**: The database, RL policies, Supabase integrations, internal calculations (`calc.ts`), UI logic, and PDF generators were strictly preserved. No edits were made to these layers.
+14. **The canonical URL for authentication routes**: TanStack Router establishes `/auth` as the canonical route inside `routeTree.gen.ts`. The Vercel rewrites now correctly route traffic to this path.
+15. **Confirmation that the Vercel app is online and functional**: The deployment was manually executed and monitored to completion via the Vercel CLI. The production instance is now completely live, functional, and will not cache broken assets.

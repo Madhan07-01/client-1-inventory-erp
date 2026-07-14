@@ -11,7 +11,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "electron": "electron electron/main.cjs",
-    "electron:package:win": "vite build && @electron/packager . \"FastenerERP Billing\" --platform=win32 --arch=x64 --out=electron-release --overwrite"
+    "electron:package:win": "vite build && @electron/packager . \"FastenerERP Billing\" --platform=win32 --arch=x64 --out=electron-release --overwrite",
+    "predeploy": "vite build --base=/client-1-inventory-erp/",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -85,6 +87,7 @@
     "eslint-plugin-prettier": "^5.2.6",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
+    "gh-pages": "^6.3.0",
     "globals": "^15.15.0",
     "postgres": "^3.4.9",
     "prettier": "^3.7.3",

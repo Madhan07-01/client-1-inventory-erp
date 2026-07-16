@@ -35,6 +35,8 @@ import {
   effectiveStatus,
 } from "@/lib/quotation-actions";
 import { toast } from "sonner";
+import { useScanner } from "@/hooks/useScanner";
+import { CameraScannerDialog } from "@/components/CameraScannerDialog";
 
 function blankItem(): InvoiceItem {
   return {
@@ -147,6 +149,65 @@ export function QuotationEditor({
 
   const totals = useMemo(() => computeTotals(q as unknown as Invoice), [q]);
   const activeProducts = settings.productMaster.filter((p) => p.active);
+
+  useScanner({
+    onScan: (barcode) => {
+      handleCameraScan(barcode);
+    },
+  });
+
+  const handleCameraScan = (barcode: string) => {
+    if (isLocked) {
+      toast.error("Cannot scan products into a locked quotation.");
+      return;
+    }
+    const match = activeProducts.find(
+      (p) => p.sku === barcode || p.barcodeValue === barcode || p.qrValue === barcode,
+    );
+
+    if (match) {
+      setQ((s) => {
+        const existing = s.items.find(
+          (it) => it.description === match.description && it.hsn === match.hsn,
+        );
+
+        if (existing) {
+          toast.success(`Incremented quantity for ${match.description}`);
+          return {
+            ...s,
+            items: s.items.map((it) =>
+              it.id === existing.id
+                ? { ...it, quantity: (it.quantity || 0) + 1 }
+                : it
+            ),
+          };
+        } else {
+          toast.success(`Added ${match.description} to quotation`);
+          const newItem: InvoiceItem = {
+            ...blankItem(),
+            description: match.description,
+            hsn: match.hsn,
+            price: match.defaultRate ?? null,
+            gstPercent: match.gstPercent ?? 0,
+            quantity: 1,
+          };
+          
+          const lastItem = s.items[s.items.length - 1];
+          const isEmpty =
+            lastItem &&
+            !lastItem.description.trim() &&
+            !lastItem.hsn.trim() &&
+            !lastItem.quantity &&
+            !lastItem.price;
+
+          const items = isEmpty ? [...s.items.slice(0, -1), newItem] : [...s.items, newItem];
+          return { ...s, items };
+        }
+      });
+    } else {
+      toast.error(`No product found for barcode: ${barcode}`);
+    }
+  };
 
   const status = effectiveStatus(q);
   const statusMeta = quotationStatusMeta(status);
@@ -630,11 +691,14 @@ export function QuotationEditor({
 
       {/* Items */}
       <div className="rounded-lg border bg-white overflow-hidden">
-        <div className="px-5 py-3 border-b flex justify-between items-center">
-          <h2 className="font-semibold">Items</h2>
-          <Button size="sm" onClick={addRow} className="gap-2" disabled={isLocked}>
-            <Plus className="h-4 w-4" /> Add Row
-          </Button>
+        <div className="px-5 py-3 border-b flex justify-between items-center bg-[var(--surface-summary)]">
+          <h2 className="font-semibold text-lg">Items</h2>
+          <div className="flex items-center gap-2">
+            <CameraScannerDialog onScan={handleCameraScan} disabled={isLocked} />
+            <Button size="sm" onClick={addRow} className="gap-2" disabled={isLocked}>
+              <Plus className="h-4 w-4" /> Add Row
+            </Button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

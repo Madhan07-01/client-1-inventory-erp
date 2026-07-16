@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 interface CameraScannerDialogProps {
   onScan: (barcode: string) => void;
   trigger?: React.ReactNode;
+  disabled?: boolean;
 }
 
-export function CameraScannerDialog({ onScan, trigger }: CameraScannerDialogProps) {
+export function CameraScannerDialog({ onScan, trigger, disabled }: CameraScannerDialogProps) {
   const [open, setOpen] = useState(false);
   const [availableCameras, setAvailableCameras] = useState<any[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
@@ -142,7 +143,7 @@ export function CameraScannerDialog({ onScan, trigger }: CameraScannerDialogProp
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2" disabled={disabled}>
             <Camera className="w-4 h-4" /> Scan
           </Button>
         )}

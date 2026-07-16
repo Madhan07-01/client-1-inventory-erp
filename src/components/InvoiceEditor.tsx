@@ -11,6 +11,7 @@ import { computeTotals, formatINR, lineTotal, numberToIndianWords } from "@/lib/
 import { downloadInvoicePdf, printInvoicePdf } from "@/components/InvoicePdf";
 import { toast } from "sonner";
 import { useScanner } from "@/hooks/useScanner";
+import { CameraScannerDialog } from "@/components/CameraScannerDialog";
 
 function blankItem(): InvoiceItem {
   return {
@@ -103,34 +104,43 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
 
   useScanner({
     onScan: (barcode) => {
-      const match = activeProducts.find(
-        (p) => p.sku === barcode || p.barcodeValue === barcode || p.qrValue === barcode,
-      );
-      if (!match) {
-        toast.error(`Product not found for barcode: ${barcode}`);
-        return;
-      }
+      handleCameraScan(barcode);
+    },
+  });
 
-      const existing = inv.items.find(
-        (it) => it.description === match.description && it.hsn === match.hsn,
-      );
+  // Handle successful camera scan
+  const handleCameraScan = (barcode: string) => {
+    const match = activeProducts.find(
+      (p) => p.sku === barcode || p.barcodeValue === barcode || p.qrValue === barcode,
+    );
 
-      if (existing) {
-        updateItem(existing.id, {
-          quantity: (existing.quantity || 0) + 1,
-        });
-        toast.success(`Incremented quantity for ${match.description}`);
-      } else {
-        const newItem: InvoiceItem = {
-          ...blankItem(),
-          description: match.description,
-          hsn: match.hsn,
-          price: match.defaultRate ?? null,
-          gstPercent: match.gstPercent ?? 0,
-          quantity: 1,
-        };
+    if (match) {
+      setInv((s) => {
+        const existing = s.items.find(
+          (it) => it.description === match.description && it.hsn === match.hsn,
+        );
 
-        setInv((s) => {
+        if (existing) {
+          toast.success(`Incremented quantity for ${match.description}`);
+          return {
+            ...s,
+            items: s.items.map((it) =>
+              it.id === existing.id
+                ? { ...it, quantity: (it.quantity || 0) + 1 }
+                : it
+            ),
+          };
+        } else {
+          toast.success(`Added ${match.description} to invoice`);
+          const newItem: InvoiceItem = {
+            ...blankItem(),
+            description: match.description,
+            hsn: match.hsn,
+            price: match.defaultRate ?? null,
+            gstPercent: match.gstPercent ?? 0,
+            quantity: 1,
+          };
+          
           const lastItem = s.items[s.items.length - 1];
           const isEmpty =
             lastItem &&
@@ -139,21 +149,14 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
             !lastItem.quantity &&
             !lastItem.price;
 
-          if (isEmpty) {
-            return {
-              ...s,
-              items: [...s.items.slice(0, -1), { ...newItem, id: lastItem.id }],
-            };
-          }
-          return {
-            ...s,
-            items: [...s.items, newItem],
-          };
-        });
-        toast.success(`Added ${match.description} to invoice`);
-      }
-    },
-  });
+          const items = isEmpty ? [...s.items.slice(0, -1), newItem] : [...s.items, newItem];
+          return { ...s, items };
+        }
+      });
+    } else {
+      toast.error(`No product found for barcode: ${barcode}`);
+    }
+  };
 
   // Auto-detect supply type from customer GSTIN state code vs company GSTIN state code.
   useEffect(() => {
@@ -671,12 +674,15 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
 
       {/* Product table */}
       <div className="rounded-lg border bg-white overflow-hidden">
-        <div className="px-5 py-3 border-b flex justify-between items-center">
-          <h2 className="font-semibold">Items</h2>
-          <Button size="sm" onClick={addRow} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Row
-          </Button>
+        <div className="px-5 py-3 border-b flex justify-between items-center bg-[var(--surface-summary)]">
+          <h2 className="font-semibold text-lg">Items</h2>
+          <div className="flex items-center gap-2">
+            <CameraScannerDialog onScan={handleCameraScan} />
+            <Button size="sm" onClick={addRow} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Row
+            </Button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

@@ -82,28 +82,38 @@ function AdminScannerPage() {
   }, [scannedProduct, inventoryStock]);
 
   const stopCameraScanner = async () => {
-    if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+    if (html5QrCodeRef.current) {
+      if (html5QrCodeRef.current.isScanning) {
+        try {
+          await html5QrCodeRef.current.stop();
+        } catch (e) {
+          // Ignore
+        }
+      }
       try {
-        await html5QrCodeRef.current.stop();
+        html5QrCodeRef.current.clear();
       } catch (e) {
         // Ignore
       }
+      html5QrCodeRef.current = null;
     }
     setIsScannerRunning(false);
   };
 
-  const processScanResult = useCallback((barcode: string) => {
+  const processScanResult = useCallback(async (barcode: string) => {
     const match = products.find(
       (p) => p.sku === barcode || p.barcodeValue === barcode || p.qrValue === barcode,
     );
+    
+    // Safely stop the camera BEFORE triggering state updates that unmount the scanner
+    await stopCameraScanner();
+
     if (match) {
       setScannedProduct(match);
       toast.success(`Scanned: ${match.description}`);
-      stopCameraScanner();
     } else {
       setScannedProduct(null);
       toast.error(`No product found for barcode: ${barcode}`);
-      stopCameraScanner(); // Stop scanning to prevent error spam
     }
   }, [products]);
 
@@ -201,9 +211,6 @@ function AdminScannerPage() {
   useEffect(() => {
     return () => {
       stopCameraScanner();
-      if (html5QrCodeRef.current) {
-         html5QrCodeRef.current.clear();
-      }
     };
   }, []);
 

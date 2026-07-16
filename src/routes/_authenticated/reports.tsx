@@ -6,10 +6,11 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { BarChart2, Search, Printer, Pencil, FileDown, RefreshCw, User, Globe } from "lucide-react";
+import { BarChart2, Search, Printer, Pencil, FileDown, RefreshCw, User, Globe, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { printInvoicePdf } from "@/components/InvoicePdf";
 import type { Invoice, Customer } from "@/lib/types";
+import { LotNumberReport } from "@/components/reports/LotNumberReport";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   component: ReportsPage,
@@ -29,7 +30,7 @@ const PERIOD_OPTIONS = [
   "Custom Date Range",
 ] as const;
 
-function getDateRange(period: string): { from: string; to: string } {
+export function getDateRange(period: string): { from: string; to: string } {
   const today = new Date();
   const toISO = (d: Date) => d.toISOString().slice(0, 10);
   const todayStr = toISO(today);
@@ -84,7 +85,7 @@ function StatusBadge({ inv }: { inv: Invoice }) {
   return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">ACTIVE</Badge>;
 }
 
-function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+export function KpiCard({ label, value, sub }: { label: string; value: string; sub?: React.ReactNode }) {
   return (
     <div className="bg-white border rounded-lg p-4">
       <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">{label}</div>
@@ -94,7 +95,7 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub?: st
   );
 }
 
-function EmptyPromptState({ message }: { message?: string }) {
+export function EmptyPromptState({ message }: { message?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
       <BarChart2 className="h-10 w-10 opacity-30" />
@@ -105,7 +106,7 @@ function EmptyPromptState({ message }: { message?: string }) {
   );
 }
 
-function LoadingState() {
+export function LoadingState() {
   return (
     <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
       <RefreshCw className="h-5 w-5 animate-spin" />
@@ -115,7 +116,7 @@ function LoadingState() {
 }
 
 // Shared period filter UI
-function PeriodFilterRow({
+export function PeriodFilterRow({
   period,
   setPeriod,
   customFrom,
@@ -698,7 +699,7 @@ function OverallInvoiceReport() {
 
 // ── Shared Invoice Table ───────────────────────────────────────────────────────
 
-function InvoiceTable({
+export function InvoiceTable({
   invoices,
   filename,
   onExportCSV,
@@ -829,7 +830,7 @@ function InvoiceTable({
 
 // ── Root Page ──────────────────────────────────────────────────────────────────
 
-type Tab = "customer" | "overall";
+type Tab = "customer" | "overall" | "lot";
 
 function ReportsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("customer");
@@ -846,11 +847,12 @@ function ReportsPage() {
         </div>
 
         {/* Tab bar */}
-        <div className="border-b flex gap-0">
+        <div className="border-b flex gap-0 overflow-x-auto">
           {(
             [
               { id: "customer" as Tab, label: "Customer Invoice Report", icon: User },
               { id: "overall" as Tab, label: "Overall Invoice Report", icon: Globe },
+              { id: "lot" as Tab, label: "Lot Number Reports", icon: Layers },
             ] as const
           ).map(({ id, label, icon: Icon }) => (
             <button
@@ -870,7 +872,13 @@ function ReportsPage() {
         </div>
 
         {/* Tab content */}
-        {activeTab === "customer" ? <CustomerInvoiceReport /> : <OverallInvoiceReport />}
+        {activeTab === "customer" ? (
+          <CustomerInvoiceReport />
+        ) : activeTab === "overall" ? (
+          <OverallInvoiceReport />
+        ) : (
+          <LotNumberReport />
+        )}
       </div>
     </AppShell>
   );

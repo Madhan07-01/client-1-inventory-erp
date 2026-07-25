@@ -30,6 +30,7 @@ function buildLabelHtml(product: ProductMasterEntry, _company?: Settings["compan
   );
 
   const itemTypeHeader = (product.itemType || "BOLT NUT WASHER SET").toUpperCase();
+  const productSize = product.size ? product.size.trim() : "";
 
   return `
     <!DOCTYPE html>
@@ -106,16 +107,25 @@ function buildLabelHtml(product: ProductMasterEntry, _company?: Settings["compan
             font-weight: 800;
             letter-spacing: 0.5px;
             margin-top: 0;
-            margin-bottom: 20px;
+            margin-bottom: ${productSize ? "4px" : "20px"};
             color: #000;
             text-transform: uppercase;
+          }
+
+          .size-header {
+            text-align: center;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            margin-bottom: 16px;
+            color: #111;
           }
 
           .qr-wrapper {
             display: flex;
             justify-content: center;
             align-items: center;
-            margin: 16px 0 24px 0;
+            margin: 12px 0 24px 0;
           }
 
           .qr-wrapper svg {
@@ -163,6 +173,7 @@ function buildLabelHtml(product: ProductMasterEntry, _company?: Settings["compan
       <body>
         <div class="print-label">
           <div class="item-type-header">${itemTypeHeader}</div>
+          ${productSize ? `<div class="size-header">Size : ${productSize}</div>` : ""}
           
           <div class="qr-wrapper">
             ${qrSvgString}
@@ -180,11 +191,6 @@ function buildLabelHtml(product: ProductMasterEntry, _company?: Settings["compan
               <td class="label-col">Description</td>
               <td class="separator-col">:</td>
               <td class="value-col">${product.description || "—"}</td>
-            </tr>
-            <tr>
-              <td class="label-col">Size</td>
-              <td class="separator-col">:</td>
-              <td class="value-col">${product.size || "—"}</td>
             </tr>
             <tr>
               <td class="label-col">Finish</td>

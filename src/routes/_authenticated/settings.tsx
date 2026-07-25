@@ -181,6 +181,11 @@ function SettingsPage() {
               value={draft.company.state}
               onChange={(v) => patchCompany({ state: v })}
             />
+            <TextField
+              label="Head / Proprietor Name"
+              value={draft.company.head ?? ""}
+              onChange={(v) => patchCompany({ head: v })}
+            />
             <div className="col-span-2">
               <Label className="text-xs text-muted-foreground">Address</Label>
               <textarea
@@ -191,6 +196,7 @@ function SettingsPage() {
             </div>
           </Grid>
         </Section>
+
 
         <Section title="Bank Details">
           <Grid>

@@ -31,17 +31,7 @@ type EditableProduct = {
   id: string;
   sku: string;
   description: string;
-  hsn: string;
-  gstPercent: number;
-  defaultRate: number | undefined;
   active: boolean;
-  lotNo?: string;
-  goodsFrom?: string;
-  size?: string;
-  tread?: string;
-  grade?: string;
-  finish?: string;
-  head?: string;
 };
 
 function AdminScannerPage() {
@@ -131,7 +121,8 @@ function AdminScannerPage() {
     
     if (!html5QrCodeRef.current) {
       html5QrCodeRef.current = new Html5Qrcode(scannerContainerId, {
-        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+        verbose: false
       });
     }
 
@@ -199,7 +190,7 @@ function AdminScannerPage() {
     if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
       try {
         await html5QrCodeRef.current.applyVideoConstraints({
-          advanced: [{ torch: !isFlashlightOn }]
+          advanced: [{ torch: !isFlashlightOn } as any]
         });
         setIsFlashlightOn(!isFlashlightOn);
       } catch (e) {
@@ -254,17 +245,7 @@ function AdminScannerPage() {
       id: scannedProduct.id,
       sku: scannedProduct.sku ?? "",
       description: scannedProduct.description,
-      hsn: scannedProduct.hsn,
-      gstPercent: scannedProduct.gstPercent,
-      defaultRate: scannedProduct.defaultRate,
       active: scannedProduct.active ?? true,
-      lotNo: scannedProduct.lotNo ?? "",
-      goodsFrom: scannedProduct.goodsFrom ?? "",
-      size: scannedProduct.size ?? "",
-      tread: scannedProduct.tread ?? "",
-      grade: scannedProduct.grade ?? "",
-      finish: scannedProduct.finish ?? "",
-      head: scannedProduct.head ?? "",
     });
   };
 
@@ -276,22 +257,12 @@ function AdminScannerPage() {
     }
     const sku = editingProduct.sku.trim() || undefined;
     upsertProduct({
-      id: editingProduct.id, // Important to pass ID for update
+      id: editingProduct.id,
       sku,
       description: editingProduct.description.trim(),
-      hsn: editingProduct.hsn.trim(),
-      gstPercent: editingProduct.gstPercent,
-      defaultRate: editingProduct.defaultRate,
       barcodeValue: sku,
       qrValue: sku,
-      lotNo: editingProduct.lotNo?.trim() || undefined,
-      goodsFrom: editingProduct.goodsFrom?.trim() || undefined,
-      size: editingProduct.size?.trim() || undefined,
-      tread: editingProduct.tread?.trim() || undefined,
-      grade: editingProduct.grade?.trim() || undefined,
-      finish: editingProduct.finish?.trim() || undefined,
-      head: editingProduct.head?.trim() || undefined,
-    });
+    } as any);
     
     // Update local scanned product state to reflect changes
     setScannedProduct((prev) => {
@@ -470,47 +441,9 @@ function AdminScannerPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                <DetailCard icon={Box} label="Lot No" value={scannedProduct.lotNo} />
-                <DetailCard icon={Tag} label="Goods From" value={scannedProduct.goodsFrom} />
-                <DetailCard icon={Ruler} label="Size" value={scannedProduct.size} />
-                <DetailCard icon={Settings2} label="Tread" value={scannedProduct.tread} />
-                <DetailCard icon={ShieldCheck} label="Grade" value={scannedProduct.grade} />
-                <DetailCard icon={Layers} label="Finish (HDG)" value={scannedProduct.finish} />
-                <DetailCard icon={Box} label="Head" value={scannedProduct.head} />
-              </div>
-            </div>
-
-            <div className="bg-muted/30 px-6 py-4 border-t">
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
-                Standard Billing Details
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground block text-xs">HSN</span>
-                  <span className="font-medium">{scannedProduct.hsn || "—"}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-xs">GST %</span>
-                  <span className="font-medium">{scannedProduct.gstPercent}%</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-xs">Default Rate</span>
-                  <span className="font-medium">
-                    {scannedProduct.defaultRate != null ? `₹${scannedProduct.defaultRate}` : "—"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-xs">Status</span>
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase mt-0.5 ${
-                      scannedProduct.active
-                        ? "bg-green-100 text-green-700"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {scannedProduct.active ? "Active" : "Inactive"}
-                  </span>
-                </div>
+                <p className="text-sm text-muted-foreground col-span-full">
+                  Inventory details (size, grade, finish, lot number, supplier) are managed through Warehouse Ledger Adjustments.
+                </p>
               </div>
             </div>
           </div>
@@ -592,89 +525,10 @@ function AdminScannerPage() {
                     onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
                   />
                 </Field>
-                <Field label="HSN Code">
-                  <Input
-                    value={editingProduct.hsn}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, hsn: e.target.value })}
-                  />
-                </Field>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="GST %">
-                    <Input
-                      type="number"
-                      value={editingProduct.gstPercent}
-                      onChange={(e) =>
-                        setEditingProduct({
-                          ...editingProduct,
-                          gstPercent: Number(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </Field>
-                  <Field label="Default Rate (₹)">
-                    <Input
-                      type="number"
-                      value={editingProduct.defaultRate ?? ""}
-                      onChange={(e) =>
-                        setEditingProduct({
-                          ...editingProduct,
-                          defaultRate: e.target.value ? Number(e.target.value) : undefined,
-                        })
-                      }
-                    />
-                  </Field>
+                  <p className="text-xs text-muted-foreground rounded-md bg-muted/40 p-3 mt-4">
+                    💡 Inventory details like size, grade, finish, lot number, supplier and purchase rate are managed through <strong>Warehouse Ledger Adjustments</strong> — not here.
+                  </p>
                 </div>
-
-                <div className="pt-4 mt-4 border-t border-dashed">
-                  <h4 className="text-sm font-semibold mb-3 text-muted-foreground">
-                    Admin Details (Optional)
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="Lot No">
-                      <Input
-                        value={editingProduct.lotNo}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, lotNo: e.target.value })}
-                      />
-                    </Field>
-                    <Field label="Goods From">
-                      <Input
-                        value={editingProduct.goodsFrom}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, goodsFrom: e.target.value })}
-                      />
-                    </Field>
-                    <Field label="Size">
-                      <Input
-                        value={editingProduct.size}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, size: e.target.value })}
-                      />
-                    </Field>
-                    <Field label="Tread (half/full/long)">
-                      <Input
-                        value={editingProduct.tread}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, tread: e.target.value })}
-                      />
-                    </Field>
-                    <Field label="Grade">
-                      <Input
-                        value={editingProduct.grade}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, grade: e.target.value })}
-                      />
-                    </Field>
-                    <Field label="Finish (HDG)">
-                      <Input
-                        value={editingProduct.finish}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, finish: e.target.value })}
-                      />
-                    </Field>
-                    <Field label="Head">
-                      <Input
-                        value={editingProduct.head}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, head: e.target.value })}
-                      />
-                    </Field>
-                  </div>
-                </div>
-              </div>
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditingProduct(null)}>

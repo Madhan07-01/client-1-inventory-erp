@@ -51,19 +51,19 @@ export function rowToProduct(r: Row): ProductMasterEntry {
     id: r.id as string,
     sku: (r.sku as string) ?? undefined,
     description: (r.description as string) ?? "",
-    hsn: (r.hsn as string) ?? "",
-    gstPercent: Number(r.gst_percent ?? 0),
-    defaultRate: r.default_rate == null ? undefined : Number(r.default_rate),
     barcodeValue: (r.barcode_value as string) ?? undefined,
     qrValue: (r.qr_value as string) ?? undefined,
+    active: (r.active as boolean) ?? true,
+    // Legacy fields — read-only, backward compat with old records
+    hsn: (r.hsn as string) ?? undefined,
+    gstPercent: r.gst_percent != null ? Number(r.gst_percent) : undefined,
+    defaultRate: r.default_rate != null ? Number(r.default_rate) : undefined,
     lotNo: (r.lot_no as string) ?? undefined,
     goodsFrom: (r.goods_from as string) ?? undefined,
     size: (r.size as string) ?? undefined,
     tread: (r.tread as string) ?? undefined,
     grade: (r.grade as string) ?? undefined,
     finish: (r.finish as string) ?? undefined,
-    head: (r.head as string) ?? undefined,
-    active: (r.active as boolean) ?? true,
   };
 }
 
@@ -73,19 +73,19 @@ export function productToRow(p: ProductMasterEntry, userId: string) {
     user_id: userId,
     sku: p.sku ?? null,
     description: p.description,
-    hsn: p.hsn,
-    gst_percent: p.gstPercent,
-    default_rate: p.defaultRate ?? null,
     barcode_value: p.barcodeValue ?? null,
     qr_value: p.qrValue ?? null,
+    active: p.active ?? true,
+    // Legacy fields preserved for backward compat
+    hsn: p.hsn ?? null,
+    gst_percent: p.gstPercent ?? null,
+    default_rate: p.defaultRate ?? null,
     lot_no: p.lotNo ?? null,
     goods_from: p.goodsFrom ?? null,
     size: p.size ?? null,
     tread: p.tread ?? null,
     grade: p.grade ?? null,
     finish: p.finish ?? null,
-    head: p.head ?? null,
-    active: p.active ?? true,
   };
 }
 
@@ -179,6 +179,7 @@ export function rowToSettings(r: Row, products: ProductMasterEntry[]): Settings 
       logoDataUrl: logo,
       signatureDataUrl: (r.signature_data_url as string) ?? "",
       watermarkDataUrl: watermark,
+      head: (r.head as string) ?? "",
     },
     bank: {
       bankName: (r.bank_name as string) ?? "",
@@ -215,6 +216,7 @@ export function settingsToRow(s: Settings, userId: string) {
     logo_data_url: s.company.logoDataUrl ?? null,
     signature_data_url: s.company.signatureDataUrl ?? null,
     watermark_data_url: s.company.watermarkDataUrl ?? null,
+    head: s.company.head ?? null,
     bank_name: s.bank.bankName,
     account_number: s.bank.accountNumber,
     ifsc: s.bank.ifsc,
@@ -331,6 +333,17 @@ export function rowToStock(r: Row): InventoryStock {
     locationId: r.location_id as string,
     quantity: Number(r.quantity ?? 0),
     updatedAt: r.updated_at as string,
+    // Batch / variant fields
+    lotNo: (r.lot_no as string) ?? undefined,
+    supplier: (r.supplier as string) ?? undefined,
+    purchaseDate: (r.purchase_date as string) ?? undefined,
+    purchaseRate: r.purchase_rate != null ? Number(r.purchase_rate) : undefined,
+    purchaseRef: (r.purchase_ref as string) ?? undefined,
+    size: (r.size as string) ?? undefined,
+    grade: (r.grade as string) ?? undefined,
+    thread: (r.thread as string) ?? undefined,
+    finish: (r.finish as string) ?? undefined,
+    availableQty: r.available_qty != null ? Number(r.available_qty) : undefined,
   };
 }
 
@@ -342,6 +355,17 @@ export function stockToRow(s: InventoryStock, userId: string) {
     warehouse_id: s.warehouseId,
     location_id: s.locationId,
     quantity: s.quantity,
+    // Batch / variant fields
+    lot_no: s.lotNo ?? null,
+    supplier: s.supplier ?? null,
+    purchase_date: s.purchaseDate ?? null,
+    purchase_rate: s.purchaseRate ?? null,
+    purchase_ref: s.purchaseRef ?? null,
+    size: s.size ?? null,
+    grade: s.grade ?? null,
+    thread: s.thread ?? null,
+    finish: s.finish ?? null,
+    available_qty: s.availableQty ?? null,
   };
 }
 
@@ -402,7 +426,8 @@ export const cloud = {
           .select("*")
           .eq("user_id", userId)
           .is("deleted_at", null)
-          .order("created_at", { ascending: false }),
+          .order("created_at", { ascending: false })
+          .limit(50),
         supabase.from("product_master").select("*").eq("user_id", userId).is("deleted_at", null),
         supabase.from("app_notifications").select("id, read").eq("user_id", userId),
         supabase.from("user_state").select("state").eq("user_id", userId).maybeSingle(),
@@ -451,7 +476,8 @@ export const cloud = {
       .select("*")
       .eq("user_id", userId)
       .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(50);
     const quotations = ((quoRes.data as unknown as Row[]) ?? []).map(rowToQuotation);
 
     let settings: Settings;
@@ -634,5 +660,88 @@ export const cloud = {
   async deleteLocation(id: string) {
     const { error } = await supabase.from("locations").delete().eq("id", id);
     if (error) throw error;
+  },
+
+  async fetchStockForProduct(productId: string, warehouseId?: string, locationId?: string): Promise<number> {
+    const userId = await currentUserId();
+    let query = supabase
+      .from("inventory_stock")
+      .select("quantity")
+      .eq("user_id", userId)
+      .eq("product_id", productId);
+
+    if (warehouseId) query = query.eq("warehouse_id", warehouseId);
+    if (locationId) query = query.eq("location_id", locationId);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return (data || []).reduce((sum, row) => sum + Number(row.quantity), 0);
+  },
+
+  async loadMoreInvoices(offset: number, limit: number = 50): Promise<Invoice[]> {
+    const userId = await currentUserId();
+    const { data, error } = await supabase
+      .from("invoices")
+      .select("*")
+      .eq("user_id", userId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (error) throw error;
+    return (data || []).map(rowToInvoice);
+  },
+
+  async loadMoreQuotations(offset: number, limit: number = 50): Promise<Quotation[]> {
+    const userId = await currentUserId();
+    const { data, error } = await supabase
+      .from("quotations")
+      .select("*")
+      .eq("user_id", userId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (error) throw error;
+    return ((data as unknown as Row[]) || []).map(rowToQuotation);
+  },
+
+  async searchInvoices(query: string): Promise<Invoice[]> {
+    const userId = await currentUserId();
+    const q = query.trim();
+    if (!q) return [];
+    
+    // We search by invoice number. For customer, we'd ideally use full text search or postgrest deep json search, 
+    // but a safe ilike on number is standard. If the DB doesn't support deep JSON ilike natively without an extension,
+    // we'll fetch matching numbers. We can also fetch the most recent ones just in case.
+    // Given the constraints, we'll search the 'number' column directly.
+    const { data, error } = await supabase
+      .from("invoices")
+      .select("*")
+      .eq("user_id", userId)
+      .is("deleted_at", null)
+      .ilike("number", `%${q}%`)
+      .order("created_at", { ascending: false })
+      .limit(50);
+      
+    if (error) throw error;
+    return (data || []).map(rowToInvoice);
+  },
+
+  async searchQuotations(query: string): Promise<Quotation[]> {
+    const userId = await currentUserId();
+    const q = query.trim();
+    if (!q) return [];
+    
+    const { data, error } = await supabase
+      .from("quotations")
+      .select("*")
+      .eq("user_id", userId)
+      .is("deleted_at", null)
+      .ilike("number", `%${q}%`)
+      .order("created_at", { ascending: false })
+      .limit(50);
+      
+    if (error) throw error;
+    return ((data as unknown as Row[]) || []).map(rowToQuotation);
   },
 };

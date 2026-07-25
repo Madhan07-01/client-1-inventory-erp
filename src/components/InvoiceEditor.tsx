@@ -3,15 +3,21 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, FileDown, Save, Printer, FileText, Check } from "lucide-react";
+import { Plus, Trash2, FileDown, Save, Printer, FileText, Check, Layers } from "lucide-react";
 import { useApp, newId } from "@/lib/store";
-import type { Invoice, InvoiceItem, SupplyType, Warehouse, Location } from "@/lib/types";
+import type { Invoice, InvoiceItem, InventoryStock, SupplyType } from "@/lib/types";
 import { cloud } from "@/lib/cloud";
 import { computeTotals, formatINR, lineTotal, numberToIndianWords } from "@/lib/calc";
 import { downloadInvoicePdf, printInvoicePdf } from "@/components/InvoicePdf";
 import { toast } from "sonner";
 import { useScanner } from "@/hooks/useScanner";
 import { CameraScannerDialog } from "@/components/CameraScannerDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 function blankItem(): InvoiceItem {
   return {
@@ -85,6 +91,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
   const navigate = useNavigate();
   const settings = useApp((s) => s.settings);
   const customers = useApp((s) => s.customers);
+  const invoices = useApp((s) => s.invoices);
   const saveInvoice = useApp((s) => s.saveInvoice);
   const consumeInvoiceNumber = useApp((s) => s.consumeInvoiceNumber);
   const addCustomer = useApp((s) => s.addCustomer);
@@ -94,6 +101,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
   const [saveAsCustomer, setSaveAsCustomer] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const warehouses = useApp((s) => s.warehouses);
+  const inventoryStock = useApp((s) => s.inventoryStock);
 
   useEffect(() => {
     setInv(initial);
@@ -101,6 +109,82 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
 
   const totals = useMemo(() => computeTotals(inv), [inv]);
   const activeProducts = settings.productMaster.filter((p) => p.active);
+
+  // --- Batch picker state ---
+  const [batchPickerItemId, setBatchPickerItemId] = useState<string | null>(null);
+  const [batchPickerProductId, setBatchPickerProductId] = useState<string | null>(null);
+
+  // Build HSN history (unique, from all invoices, no duplicates)
+  const hsnHistory = useMemo(() => {
+    const seen = new Set<string>();
+    const list: string[] = [];
+    for (const inv of invoices) {
+      for (const it of inv.items) {
+        if (it.hsn && !seen.has(it.hsn)) {
+          seen.add(it.hsn);
+          list.push(it.hsn);
+        }
+      }
+    }
+    return list;
+  }, [invoices]);
+
+  // Get batches for a given product across warehouses
+  function getBatchesForProduct(productId: string): InventoryStock[] {
+    let batches = inventoryStock.filter((s) => s.productId === productId && s.quantity > 0);
+    if (inv.dispatchWarehouseId) {
+      batches = batches.filter((s) => s.warehouseId === inv.dispatchWarehouseId);
+    }
+    return batches;
+  }
+
+  // Format a batch label
+  function batchLabel(batch: InventoryStock): string {
+    const wh = warehouses.find((w) => w.id === batch.warehouseId);
+    const loc = wh?.locations?.find((l) => l.id === batch.locationId);
+    const parts: string[] = [];
+    if (batch.size) parts.push(`Size: ${batch.size}`);
+    if (batch.grade) parts.push(`Grade: ${batch.grade}`);
+    if (batch.finish) parts.push(`Finish: ${batch.finish}`);
+    if (batch.thread) parts.push(`Thread: ${batch.thread}`);
+    if (batch.lotNo) parts.push(`Lot: ${batch.lotNo}`);
+    if (wh) parts.push(`WH: ${wh.name}`);
+    if (loc) parts.push(`Loc: ${loc.name}`);
+    return `${parts.join(" · ")} | Qty: ${batch.quantity}`;
+  }
+
+  const getAvailableStock = (description: string) => {
+    const p = activeProducts.find(
+      (x) => x.description.trim().toLowerCase() === description.trim().toLowerCase(),
+    );
+    if (!p) return null;
+    let relevantStock = inventoryStock.filter((s) => s.productId === p.id);
+    if (inv.dispatchWarehouseId) {
+      relevantStock = relevantStock.filter((s) => s.warehouseId === inv.dispatchWarehouseId);
+    }
+    if (inv.dispatchLocationId) {
+      relevantStock = relevantStock.filter((s) => s.locationId === inv.dispatchLocationId);
+    }
+    return relevantStock.reduce((acc, s) => acc + s.quantity, 0);
+  };
+
+  const hasInvalidStock = useMemo(() => {
+    return inv.items.some((it) => {
+      if (!it.description || it.quantity === null) return false;
+      const avail = getAvailableStock(it.description);
+      return avail !== null && it.quantity > avail;
+    });
+  }, [inv.items, activeProducts, inventoryStock, inv.dispatchWarehouseId, inv.dispatchLocationId]);
+
+  // Apply a specific inventory batch to an invoice item
+  function applyBatchToItem(itemId: string, batch: InventoryStock) {
+    updateItem(itemId, {
+      stockBatchId: batch.id,
+    });
+    setBatchPickerItemId(null);
+    setBatchPickerProductId(null);
+    toast.success("Batch selected");
+  }
 
   useScanner({
     onScan: (barcode) => {
@@ -115,6 +199,12 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
     );
 
     if (match) {
+      const available = getAvailableStock(match.description);
+      if (available !== null && available <= 0) {
+        toast.error(`❌ Product Out of Stock: ${match.description}`);
+        return;
+      }
+
       setInv((s) => {
         const existing = s.items.find(
           (it) => it.description === match.description && it.hsn === match.hsn,
@@ -135,7 +225,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
           const newItem: InvoiceItem = {
             ...blankItem(),
             description: match.description,
-            hsn: match.hsn,
+            hsn: match.hsn ?? "",
             price: match.defaultRate ?? null,
             gstPercent: match.gstPercent ?? 0,
             quantity: 1,
@@ -220,13 +310,23 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       (p) => p.description.trim().toLowerCase() === desc.trim().toLowerCase(),
     );
     if (!match) return;
-    const patch: Partial<InvoiceItem> = {
-      description: match.description,
-      hsn: match.hsn,
-      gstPercent: match.gstPercent,
-    };
-    if (match.defaultRate != null) patch.price = match.defaultRate;
-    updateItem(itemId, patch);
+
+    const available = getAvailableStock(match.description);
+    if (available !== null && available <= 0) {
+       toast.error(`❌ Product Out of Stock: ${match.description}`);
+       updateItem(itemId, blankItem()); // Clear the row
+       return;
+    }
+
+    // Prefill description only — HSN is typed manually per invoice item
+    updateItem(itemId, { description: match.description });
+
+    // If this product has batches, prompt user to pick one
+    const batches = getBatchesForProduct(match.id);
+    if (batches.length > 0) {
+      setBatchPickerItemId(itemId);
+      setBatchPickerProductId(match.id);
+    }
   }
   function ensureSaved(extra?: Partial<Invoice>): Invoice {
     let final = inv;
@@ -243,17 +343,8 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       cleanedItems = [blankItem()];
     }
     final = { ...final, items: cleanedItems };
-    // Auto-save products to master.
-    for (const it of final.items) {
-      if (it.description.trim() && it.hsn.trim()) {
-        upsertProductMaster({
-          description: it.description,
-          hsn: it.hsn,
-          gstPercent: it.gstPercent ?? 0,
-          defaultRate: it.price ?? undefined,
-        });
-      }
-    }
+    // Note: products are no longer auto-saved to product master from invoices.
+    // Products are managed via the Product Master tab in Inventory.
     if (mode === "create" && (!final.number || final.number === initial.number)) {
       // consume official number only on save (already preassigned via initial)
     }
@@ -267,11 +358,43 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
     return final;
   }
 
-  function handleSave(asDraft = false) {
+  async function validateStockNetwork(): Promise<boolean> {
+    for (const item of inv.items) {
+      if (!item.quantity || !item.description) continue;
+      const p = activeProducts.find(
+        (x) => x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
+      );
+      if (!p) continue;
+      
+      try {
+        const latestStock = await cloud.fetchStockForProduct(p.id, inv.dispatchWarehouseId || undefined, inv.dispatchLocationId || undefined);
+        if (latestStock < item.quantity) {
+           toast.error(`❌ Concurrent modification: Not enough stock for ${item.description}. Available: ${latestStock}`);
+           return false;
+        }
+      } catch (err) {
+        console.error("Error fetching stock:", err);
+        toast.error("Failed to validate stock with server. Please check your connection.");
+        return false;
+      }
+    }
+    return true;
+  }
+
+  async function handleSave(asDraft = false) {
     if (!inv.customer.name.trim()) {
       toast.error("Customer name is required");
       return;
     }
+    if (hasInvalidStock) {
+      toast.error("Please fix invalid stock quantities before saving.");
+      return;
+    }
+    if (!asDraft) {
+      const isValid = await validateStockNetwork();
+      if (!isValid) return;
+    }
+    
     if (mode === "create") {
       // bump counter only first time we save a new invoice number
       const current = settings.nextInvoiceNumber;
@@ -298,6 +421,13 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       toast.error("Customer name is required");
       return;
     }
+    if (hasInvalidStock) {
+      toast.error("Please fix invalid stock quantities before exporting.");
+      return;
+    }
+    const isValid = await validateStockNetwork();
+    if (!isValid) return;
+
     if (mode === "create") {
       const current = settings.nextInvoiceNumber;
       const initialNum = `${settings.invoicePrefix}-${String(current).padStart(settings.invoiceDigits || 4, "0")}`;
@@ -315,6 +445,13 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       toast.error("Customer name is required");
       return;
     }
+    if (hasInvalidStock) {
+      toast.error("Please fix invalid stock quantities before printing.");
+      return;
+    }
+    const isValid = await validateStockNetwork();
+    if (!isValid) return;
+
     if (mode === "create") {
       const current = settings.nextInvoiceNumber;
       const initialNum = `${settings.invoicePrefix}-${String(current).padStart(settings.invoiceDigits || 4, "0")}`;
@@ -401,15 +538,16 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
             onClick={() => handleSave(false)}
             className="gap-2"
             title="Ctrl+S"
+            disabled={hasInvalidStock}
           >
             <Save className="h-4 w-4" />
             Save
           </Button>
-          <Button variant="outline" onClick={handlePrint} className="gap-2" title="Ctrl+P">
+          <Button variant="outline" onClick={handlePrint} className="gap-2" title="Ctrl+P" disabled={hasInvalidStock}>
             <Printer className="h-4 w-4" />
             Print
           </Button>
-          <Button onClick={handleExport} className="gap-2">
+          <Button onClick={handleExport} className="gap-2" disabled={hasInvalidStock}>
             <FileDown className="h-4 w-4" />
             Export PDF
           </Button>
@@ -711,9 +849,21 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                       }}
                       placeholder="e.g. m10 SS bolt"
                     />
+                    {(() => {
+                      if (!it.description) return null;
+                      const avail = getAvailableStock(it.description);
+                      if (avail === null) return null;
+                      const isOutOfStock = avail <= 0;
+                      return (
+                        <div className={`text-[10px] mt-1 font-medium ${isOutOfStock ? "text-destructive" : "text-emerald-600"}`}>
+                          Available: {avail} Units
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-2 py-1">
                     <Input
+                      list="hsn-history-list"
                       value={it.hsn}
                       onChange={(e) => updateItem(it.id, { hsn: e.target.value })}
                       placeholder="7318"
@@ -722,15 +872,36 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                   <td className="px-2 py-1 w-28">
                     <Input
                       type="number"
-                      className="text-right"
+                      className={`text-right ${
+                        (() => {
+                          if (!it.description || it.quantity === null) return "";
+                          const avail = getAvailableStock(it.description);
+                          if (avail !== null && it.quantity > avail) return "border-destructive ring-1 ring-destructive focus-visible:ring-destructive";
+                          return "";
+                        })()
+                      }`}
                       value={it.quantity ?? ""}
                       placeholder="0"
-                      onChange={(e) =>
-                        updateItem(it.id, {
-                          quantity: e.target.value === "" ? null : Number(e.target.value),
-                        })
-                      }
+                      onChange={(e) => {
+                        let val = e.target.value === "" ? null : Number(e.target.value);
+                        if (val !== null && it.description) {
+                           const avail = getAvailableStock(it.description);
+                           if (avail !== null && val > avail) {
+                              toast.error(`Cannot exceed available stock (${avail})`);
+                              val = avail; // Cap at available
+                           }
+                        }
+                        updateItem(it.id, { quantity: val });
+                      }}
                     />
+                    {(() => {
+                      if (!it.description || it.quantity === null) return null;
+                      const avail = getAvailableStock(it.description);
+                      if (avail !== null && it.quantity > avail) {
+                        return <div className="text-[10px] text-destructive mt-1 leading-tight text-right">Exceeds stock</div>;
+                      }
+                      return null;
+                    })()}
                   </td>
                   <td className="px-2 py-1 w-28">
                     <Input
@@ -766,26 +937,69 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
             </tbody>
           </table>
           <datalist id="product-master-list">
-            {activeProducts.map((p) => (
-              <option key={p.id} value={p.description} />
+            {activeProducts.map((p) => {
+              const avail = getAvailableStock(p.description);
+              const outOfStock = avail !== null && avail <= 0;
+              return (
+                <option key={p.id} value={p.description}>
+                  {outOfStock ? "[OUT OF STOCK] " : ""}{p.description}
+                </option>
+              );
+            })}
+          </datalist>
+          <datalist id="hsn-history-list">
+            {hsnHistory.map((h) => (
+              <option key={h} value={h} />
             ))}
           </datalist>
         </div>
       </div>
+
+      {/* Batch Picker Dialog */}
+      <Dialog open={!!batchPickerItemId} onOpenChange={(open) => { if (!open) { setBatchPickerItemId(null); setBatchPickerProductId(null); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5" />
+              Select Inventory Batch
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Choose which stock batch to dispatch for this line item:</p>
+            {batchPickerProductId && getBatchesForProduct(batchPickerProductId).length === 0 ? (
+              <p className="text-sm text-destructive">No available batches found for this product.</p>
+            ) : (
+              <div className="divide-y border rounded-md overflow-hidden">
+                {batchPickerProductId && getBatchesForProduct(batchPickerProductId).map((batch) => (
+                  <button
+                    key={batch.id}
+                    className="w-full text-left px-4 py-3 hover:bg-muted/40 transition-colors text-sm"
+                    onClick={() => batchPickerItemId && applyBatchToItem(batchPickerItemId, batch)}
+                  >
+                    <div className="font-medium">{batchLabel(batch)}</div>
+                    {(batch.supplier || batch.purchaseRate || batch.purchaseDate) && (
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {batch.supplier && `Supplier: ${batch.supplier}`}
+                        {batch.purchaseRate && ` · Rate: ₹${batch.purchaseRate}`}
+                        {batch.purchaseDate && ` · Date: ${batch.purchaseDate}`}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-between pt-2">
+              <Button variant="ghost" size="sm" onClick={() => { setBatchPickerItemId(null); setBatchPickerProductId(null); }}>Skip (no batch)</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Summary */}
       {/* Tax Details (between Items and Summary) */}
       <div className="rounded-lg border bg-white overflow-hidden">
         <div className="px-5 py-3 border-b font-semibold bg-[var(--surface-summary)] flex items-center justify-between">
           <span>Tax Details</span>
-          <label className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={!!inv.taxOverride}
-              onChange={(e) => patch({ taxOverride: e.target.checked })}
-            />
-            Override Tax
-          </label>
         </div>
         <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div>

@@ -61,6 +61,21 @@ interface AppState {
   deleteWarehouse: (id: string) => void;
   upsertLocation: (loc: Location) => void;
   deleteLocation: (warehouseId: string, locationId: string) => void;
+
+  // Pagination & Realtime Local-only Mutations
+  setInvoices: (invoices: Invoice[]) => void;
+  appendInvoices: (invoices: Invoice[]) => void;
+  setQuotations: (quotations: Quotation[]) => void;
+  appendQuotations: (quotations: Quotation[]) => void;
+
+  upsertInvoiceLocal: (inv: Invoice) => void;
+  removeInvoiceLocal: (id: string) => void;
+  upsertQuotationLocal: (q: Quotation) => void;
+  removeQuotationLocal: (id: string) => void;
+  upsertCustomerLocal: (c: Customer) => void;
+  removeCustomerLocal: (id: string) => void;
+  upsertProductLocal: (p: ProductMasterEntry) => void;
+  setSettingsLocal: (s: Settings) => void;
 }
 
 function bg(promise: Promise<unknown>, errorPrefix: string) {
@@ -173,17 +188,8 @@ export const useApp = create<AppState>()((set, get) => ({
           id: newId(),
           sku: entry.sku || "SKU-" + newId().slice(0, 8),
           description: desc,
-          hsn: entry.hsn,
-          gstPercent: entry.gstPercent,
-          defaultRate: entry.defaultRate,
           barcodeValue: entry.barcodeValue || "",
           qrValue: entry.qrValue || "",
-          lotNo: entry.lotNo || "",
-          goodsFrom: entry.goodsFrom || "",
-          size: entry.size || "",
-          tread: entry.tread || "",
-          grade: entry.grade || "",
-          finish: entry.finish || "",
           active: true,
         };
         bg(cloud.upsertProduct(saved), "Save product");
@@ -194,21 +200,11 @@ export const useApp = create<AppState>()((set, get) => ({
           },
         };
       }
-      const updated = {
+      const updated: ProductMasterEntry = {
         ...list[idx],
         sku: entry.sku !== undefined ? entry.sku : list[idx].sku,
-        hsn: entry.hsn || list[idx].hsn,
-        gstPercent: entry.gstPercent || list[idx].gstPercent,
-        defaultRate: entry.defaultRate ?? list[idx].defaultRate,
-        barcodeValue:
-          entry.barcodeValue !== undefined ? entry.barcodeValue : list[idx].barcodeValue,
+        barcodeValue: entry.barcodeValue !== undefined ? entry.barcodeValue : list[idx].barcodeValue,
         qrValue: entry.qrValue !== undefined ? entry.qrValue : list[idx].qrValue,
-        lotNo: entry.lotNo !== undefined ? entry.lotNo : list[idx].lotNo,
-        goodsFrom: entry.goodsFrom !== undefined ? entry.goodsFrom : list[idx].goodsFrom,
-        size: entry.size !== undefined ? entry.size : list[idx].size,
-        tread: entry.tread !== undefined ? entry.tread : list[idx].tread,
-        grade: entry.grade !== undefined ? entry.grade : list[idx].grade,
-        finish: entry.finish !== undefined ? entry.finish : list[idx].finish,
       };
       bg(cloud.upsertProduct(updated), "Update product");
       const next = [...list];
@@ -507,6 +503,69 @@ export const useApp = create<AppState>()((set, get) => ({
       bg(cloud.deleteLocation(locationId), "Delete location");
       return { warehouses };
     }),
+
+  // --- Local-only Actions for Realtime & Pagination ---
+  setInvoices: (invoices) => set({ invoices }),
+  appendInvoices: (newInvs) =>
+    set((s) => {
+      const existingIds = new Set(s.invoices.map((i) => i.id));
+      const toAdd = newInvs.filter((i) => !existingIds.has(i.id));
+      return { invoices: [...s.invoices, ...toAdd] };
+    }),
+  setQuotations: (quotations) => set({ quotations }),
+  appendQuotations: (newQuos) =>
+    set((s) => {
+      const existingIds = new Set(s.quotations.map((q) => q.id));
+      const toAdd = newQuos.filter((q) => !existingIds.has(q.id));
+      return { quotations: [...s.quotations, ...toAdd] };
+    }),
+
+  upsertInvoiceLocal: (inv) =>
+    set((s) => {
+      const idx = s.invoices.findIndex((x) => x.id === inv.id);
+      if (idx === -1) {
+        return { invoices: [inv, ...s.invoices] };
+      }
+      return { invoices: s.invoices.map((x) => (x.id === inv.id ? inv : x)) };
+    }),
+  removeInvoiceLocal: (id) =>
+    set((s) => ({ invoices: s.invoices.filter((x) => x.id !== id) })),
+
+  upsertQuotationLocal: (q) =>
+    set((s) => {
+      const idx = s.quotations.findIndex((x) => x.id === q.id);
+      if (idx === -1) {
+        return { quotations: [q, ...s.quotations] };
+      }
+      return { quotations: s.quotations.map((x) => (x.id === q.id ? q : x)) };
+    }),
+  removeQuotationLocal: (id) =>
+    set((s) => ({ quotations: s.quotations.filter((x) => x.id !== id) })),
+
+  upsertCustomerLocal: (c) =>
+    set((s) => {
+      const idx = s.customers.findIndex((x) => x.id === c.id);
+      if (idx === -1) {
+        return { customers: [...s.customers, c].sort((a, b) => a.name.localeCompare(b.name)) };
+      }
+      return { customers: s.customers.map((x) => (x.id === c.id ? c : x)) };
+    }),
+  removeCustomerLocal: (id) =>
+    set((s) => ({ customers: s.customers.filter((x) => x.id !== id) })),
+
+  upsertProductLocal: (p) =>
+    set((s) => {
+      const list = s.settings.productMaster;
+      const idx = list.findIndex((x) => x.id === p.id);
+      if (idx === -1) {
+        return { settings: { ...s.settings, productMaster: [...list, p] } };
+      }
+      const nextList = [...list];
+      nextList[idx] = p;
+      return { settings: { ...s.settings, productMaster: nextList } };
+    }),
+
+  setSettingsLocal: (settings) => set({ settings }),
 }));
 
 export function newId(): string {

@@ -32,6 +32,8 @@ const navItems = [
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+
 export function AppShell({ children }: { children: ReactNode }) {
   const settings = useApp((s) => s.settings);
   const company = settings.company;
@@ -40,6 +42,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Enable Realtime sync across devices
+  useRealtimeSync();
 
   async function handleSignOut() {
     try {

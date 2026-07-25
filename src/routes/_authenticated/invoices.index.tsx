@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useApp } from "@/lib/store";
 import { computeTotals, formatINR, formatDate } from "@/lib/calc";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Search, Trash2, Pencil, Printer, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { printInvoicePdf } from "@/components/InvoicePdf";
+import { cloud } from "@/lib/cloud";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import type { Invoice } from "@/lib/types";
 
 export const Route = createFileRoute("/_authenticated/invoices/")({
   head: () => ({ meta: [{ title: "Invoices · FastenerERP Billing" }] }),
@@ -28,21 +30,61 @@ function InvoicesList() {
   const invoices = useApp((s) => s.invoices);
   const deleteInvoice = useApp((s) => s.deleteInvoice);
   const saveInvoice = useApp((s) => s.saveInvoice);
+  const appendInvoices = useApp((s) => s.appendInvoices);
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Invoice[] | null>(null);
   const [showCancelled, setShowCancelled] = useState(false);
   const [showDrafts, setShowDrafts] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Debounce search query
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // Fetch remote search results
+  useEffect(() => {
+    if (!debouncedQuery.trim()) {
+      setSearchResults(null);
+      return;
+    }
+    let active = true;
+    cloud.searchInvoices(debouncedQuery).then((res) => {
+      if (active) setSearchResults(res);
+    }).catch(console.error);
+    return () => { active = false; };
+  }, [debouncedQuery]);
+
+  const sourceInvoices = searchResults ?? invoices;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return invoices
+    let list = sourceInvoices
       .filter((inv) => (showCancelled ? true : inv.lifecycle !== "CANCELLED"))
-      .filter((inv) => (showDrafts ? true : !inv.isDraft))
-      .filter((inv) =>
-        q ? [inv.number, inv.customer.name].join(" ").toLowerCase().includes(q) : true,
-      )
-      .sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
-  }, [invoices, query, showCancelled, showDrafts]);
+      .filter((inv) => (showDrafts ? true : !inv.isDraft));
+
+    if (q) {
+      list = list.filter((inv) => [inv.number, inv.customer.name].join(" ").toLowerCase().includes(q));
+    }
+    return list.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
+  }, [sourceInvoices, query, showCancelled, showDrafts]);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    try {
+      const offset = invoices.length;
+      const more = await cloud.loadMoreInvoices(offset, 50);
+      appendInvoices(more);
+      if (more.length === 0) toast.info("No more invoices to load");
+    } catch (e) {
+      toast.error("Failed to load more invoices");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   async function handlePrint(id: string) {
     const src = invoices.find((i) => i.id === id);
@@ -222,6 +264,19 @@ function InvoicesList() {
               )}
             </tbody>
           </table>
+          
+          {/* Pagination Load More */}
+          {!query && (
+            <div className="p-4 border-t flex justify-center">
+              <Button 
+                variant="outline" 
+                onClick={handleLoadMore} 
+                disabled={loadingMore}
+              >
+                {loadingMore ? "Loading..." : "Load Older Invoices"}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </AppShell>

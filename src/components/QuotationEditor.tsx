@@ -186,7 +186,7 @@ export function QuotationEditor({
           const newItem: InvoiceItem = {
             ...blankItem(),
             description: match.description,
-            hsn: match.hsn,
+            hsn: match.hsn ?? "",
             price: match.defaultRate ?? null,
             gstPercent: match.gstPercent ?? 0,
             quantity: 1,

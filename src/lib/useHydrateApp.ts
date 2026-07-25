@@ -56,21 +56,21 @@ export function useHydrateApp() {
     });
 
     // Re-sync on window focus for multi-device changes.
+    // Fallback: only fetch settings, customers, products, etc. 
+    // Invoices and quotations are handled by Realtime.
     const onFocus = () => {
+      if (!hydrated) return;
       cloud
         .fetchAll()
         .then((data) => {
           if (cancelled) return;
-          hydrate({
-            settings: data.settings,
-            customers: data.customers,
-            invoices: data.invoices,
-            quotations: data.quotations,
-            inventoryStock: data.inventoryStock,
-            inventoryTransactions: data.inventoryTransactions,
-            warehouses: data.warehouses,
-            readNotificationIds: data.readNotificationIds,
-            dismissedNotificationIds: data.dismissedNotificationIds,
+          // Use store directly to update non-paginated data as a fallback
+          useApp.getState().setSettingsLocal(data.settings);
+          // Customers and products are small enough to replace
+          useApp.setState({ 
+            customers: data.customers, 
+            warehouses: data.warehouses, 
+            inventoryStock: data.inventoryStock 
           });
         })
         .catch(() => {

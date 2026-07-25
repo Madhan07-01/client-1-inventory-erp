@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useApp } from "@/lib/store";
 import { computeTotals, formatINR, formatDate } from "@/lib/calc";
@@ -24,6 +24,7 @@ import {
   effectiveStatus,
   quotationStatusMeta,
 } from "@/lib/quotation-actions";
+import { cloud } from "@/lib/cloud";
 import type { Invoice, Quotation, QuotationStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/_authenticated/quotations/")({
@@ -43,21 +44,62 @@ function QuotationsList() {
   const quotations = useApp((s) => s.quotations);
   const deleteQuotation = useApp((s) => s.deleteQuotation);
   const saveQuotation = useApp((s) => s.saveQuotation);
+  const appendQuotations = useApp((s) => s.appendQuotations);
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Quotation[] | null>(null);
   const [statusFilter, setStatusFilter] = useState<QuotationStatus | "all">("all");
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Debounce search query
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // Fetch remote search results
+  useEffect(() => {
+    if (!debouncedQuery.trim()) {
+      setSearchResults(null);
+      return;
+    }
+    let active = true;
+    cloud.searchQuotations(debouncedQuery).then((res) => {
+      if (active) setSearchResults(res);
+    }).catch(console.error);
+    return () => { active = false; };
+  }, [debouncedQuery]);
+
+  const sourceQuotations = searchResults ?? quotations;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return quotations
-      .filter((quo) => (statusFilter === "all" ? true : effectiveStatus(quo) === statusFilter))
-      .filter((quo) =>
-        q
-          ? [quo.number, quo.customer.name, quo.company.name].join(" ").toLowerCase().includes(q)
-          : true,
-      )
-      .sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
-  }, [quotations, query, statusFilter]);
+    let list = sourceQuotations.filter((quo) => 
+      statusFilter === "all" ? true : effectiveStatus(quo) === statusFilter
+    );
+
+    if (q) {
+      list = list.filter((quo) =>
+        [quo.number, quo.customer.name, quo.company.name].join(" ").toLowerCase().includes(q)
+      );
+    }
+    return list.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
+  }, [sourceQuotations, query, statusFilter]);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    try {
+      const offset = quotations.length;
+      const more = await cloud.loadMoreQuotations(offset, 50);
+      appendQuotations(more);
+      if (more.length === 0) toast.info("No more quotations to load");
+    } catch (e) {
+      toast.error("Failed to load more quotations");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   async function handlePrint(id: string) {
     const src = quotations.find((q) => q.id === id);
@@ -267,6 +309,19 @@ function QuotationsList() {
                   })}
                 </tbody>
               </table>
+              
+              {/* Pagination Load More */}
+              {!query && (
+                <div className="p-4 border-t flex justify-center">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleLoadMore} 
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? "Loading..." : "Load Older Quotations"}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>

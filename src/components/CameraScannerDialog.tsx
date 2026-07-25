@@ -44,8 +44,13 @@ export function CameraScannerDialog({ onScan, trigger, disabled }: CameraScanner
     setIsInitializing(true);
     if (!html5QrCodeRef.current) {
       html5QrCodeRef.current = new Html5Qrcode(scannerContainerId, {
-        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.CODE_128]
-      });
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.QR_CODE,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.EAN_13,
+      ],
+      verbose: false,
+    });
     }
 
     const qrCodeScanner = html5QrCodeRef.current;
@@ -130,7 +135,7 @@ export function CameraScannerDialog({ onScan, trigger, disabled }: CameraScanner
     if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
       try {
         await html5QrCodeRef.current.applyVideoConstraints({
-          advanced: [{ torch: !isFlashlightOn }]
+          advanced: [{ torch: !isFlashlightOn } as any]
         });
         setIsFlashlightOn(!isFlashlightOn);
       } catch (e) {

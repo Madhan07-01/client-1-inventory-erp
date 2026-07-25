@@ -15,6 +15,7 @@ export const defaultSettings: Settings = {
     logoDataUrl: logoAsset.url,
     signatureDataUrl: "",
     watermarkDataUrl: watermarkAsset.url,
+    head: "",
   },
   bank: {
     bankName: "BANK OF INDIA",

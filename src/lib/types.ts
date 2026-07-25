@@ -25,6 +25,8 @@ export interface CompanyInfo {
   logoDataUrl?: string;
   signatureDataUrl?: string;
   watermarkDataUrl?: string;
+  /** Proprietor / head of company — stored for future use, not displayed in app UI */
+  head?: string;
 }
 
 export interface BankInfo {
@@ -47,16 +49,23 @@ export interface InvoiceShipTo {
   pincode: string;
 }
 
+/**
+ * Product Master — catalogue identity only.
+ * Inventory-specific details (size, grade, finish, lot, supplier, etc.)
+ * now belong to InventoryStock (Warehouse Ledger Adjustment).
+ */
 export interface ProductMasterEntry {
   id: string;
   description: string;
-  hsn: string;
-  gstPercent: number;
-  defaultRate?: number;
   active?: boolean;
   sku?: string;
   barcodeValue?: string;
   qrValue?: string;
+  // Legacy fields — kept for backward compatibility with existing stored data.
+  // No longer written or surfaced in UI; use InventoryStock batch fields instead.
+  hsn?: string;
+  gstPercent?: number;
+  defaultRate?: number;
   lotNo?: string;
   goodsFrom?: string;
   size?: string;
@@ -99,6 +108,8 @@ export interface InvoiceItem {
   unit: string;
   price: number | null;
   gstPercent: number | null;
+  /** Reference to the inventory batch (InventoryStock.id) used when dispatching */
+  stockBatchId?: string;
 }
 
 export interface Invoice {
@@ -126,7 +137,7 @@ export interface Invoice {
   shipTo?: InvoiceShipTo;
   supplyType?: SupplyType;
   supplyTypeManual?: boolean;
-  /** when true, cgstAmountOverride/sgstAmountOverride/igstAmountOverride are respected */
+  /** Legacy — kept for backward compat with historical invoices. Not editable via UI on new invoices. */
   taxOverride?: boolean;
   cgstPercent?: number;
   sgstPercent?: number;
@@ -180,6 +191,10 @@ export interface Quotation {
   createdAt: string;
 }
 
+/**
+ * InventoryStock — one record per product + warehouse + location + batch.
+ * This is the authoritative source for variants, purchase details, and stock quantities.
+ */
 export interface InventoryStock {
   id?: string;
   productId: string;
@@ -187,6 +202,18 @@ export interface InventoryStock {
   locationId: string;
   quantity: number;
   updatedAt?: string;
+  // --- Batch / variant fields (Warehouse Ledger Adjustment) ---
+  lotNo?: string;
+  supplier?: string;
+  purchaseDate?: string;
+  purchaseRate?: number;
+  purchaseRef?: string;
+  size?: string;
+  grade?: string;
+  thread?: string;
+  finish?: string;
+  /** Available-for-sale qty (may differ from quantity if some are reserved) */
+  availableQty?: number;
 }
 
 export interface InventoryTransaction {

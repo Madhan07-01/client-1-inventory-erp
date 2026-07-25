@@ -6,7 +6,7 @@ import type { Warehouse, InventoryStock, InventoryTransaction } from "@/lib/type
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, ScanBarcode, ArrowDownUp, Download, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, ScanBarcode, ArrowDownUp, Download, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useScanner } from "@/hooks/useScanner";
 import { AppShell } from "@/components/AppShell";
@@ -65,6 +65,7 @@ function InventoryPage() {
   const inventoryStock = useApp((s) => s.inventoryStock);
   const upsertInventoryStock = useApp((s) => s.upsertInventoryStock);
   const insertInventoryTransaction = useApp((s) => s.insertInventoryTransaction);
+  const deleteInventoryStock = useApp((s) => s.deleteInventoryStock);
   const warehouses = useApp((s) => s.warehouses);
 
   const [isAdjusting, setIsAdjusting] = useState(false);
@@ -512,6 +513,20 @@ function InventoryPage() {
                                 }}
                               >
                                 <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Delete Stock Record"
+                                className="text-red-500 hover:text-red-700"
+                                onClick={() => {
+                                  if (window.confirm("Are you sure you want to delete this ledger entry? This cannot be undone.")) {
+                                    deleteInventoryStock(row.id as string);
+                                    toast.success("Ledger entry deleted.");
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </td>
                           </tr>

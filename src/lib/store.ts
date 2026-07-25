@@ -56,6 +56,7 @@ interface AppState {
   dismissNotification: (id: string) => void;
   clearReadNotifications: () => void;
   upsertInventoryStock: (stock: InventoryStock) => void;
+  deleteInventoryStock: (id: string) => void;
   insertInventoryTransaction: (txn: InventoryTransaction) => void;
   upsertWarehouse: (wh: Warehouse) => void;
   deleteWarehouse: (id: string) => void;
@@ -461,6 +462,13 @@ export const useApp = create<AppState>()((set, get) => ({
           : s.inventoryStock.map((x) => (x.id === stock.id ? stock : x));
       bg(cloud.upsertInventoryStock(stock), "Save inventory stock");
       return { inventoryStock };
+    }),
+  deleteInventoryStock: (id) =>
+    set((state) => {
+      bg(cloud.deleteInventoryStock(id), "Delete inventory stock");
+      return {
+        inventoryStock: state.inventoryStock.filter((s) => s.id !== id),
+      };
     }),
   insertInventoryTransaction: (txn) =>
     set((s) => {

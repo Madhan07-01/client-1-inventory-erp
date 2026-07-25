@@ -662,6 +662,11 @@ export const cloud = {
     if (error) throw error;
   },
 
+  async deleteInventoryStock(id: string) {
+    const { error } = await supabase.from("inventory_stock").delete().eq("id", id);
+    if (error) throw error;
+  },
+
   async fetchStockForProduct(productId: string, warehouseId?: string, locationId?: string): Promise<number> {
     const userId = await currentUserId();
     let query = supabase

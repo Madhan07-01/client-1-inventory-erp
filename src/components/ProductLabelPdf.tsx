@@ -1,131 +1,219 @@
 import * as ReactDOMServer from "react-dom/server";
-import Barcode from "react-barcode";
 import { QRCodeSVG } from "qrcode.react";
 import type { ProductMasterEntry, Settings } from "@/lib/types";
 
 /**
- * Generates an HTML string for a single product label, optimized for a
- * typical thermal barcode label printer (e.g. 50mm x 25mm).
+ * Generates an HTML string for a printable QR product specification label,
+ * scaled to occupy ~90% of the printable A4 page in a single page layout.
  */
-function buildLabelHtml(product: ProductMasterEntry, company: Settings["company"]) {
-  // We use ReactDOMServer to render the React components to static HTML
-  const barcodeSvgString = ReactDOMServer.renderToString(
-    <Barcode
-      value={product.sku || product.description}
-      format="CODE128"
-      width={1.2}
-      height={30}
-      fontSize={10}
-      margin={0}
-      displayValue={true}
-    />,
-  );
+function buildLabelHtml(product: ProductMasterEntry, _company?: Settings["company"]) {
+  const payloadObj = {
+    sku: product.sku || "",
+    description: product.description || "",
+    itemType: product.itemType || "",
+    size: product.size || "",
+    finish: product.finish || "",
+    grade: product.grade || "",
+    threadType: product.threadType || "",
+    threadLength: product.threadLength || "",
+  };
+
+  const qrPayload = JSON.stringify(payloadObj);
 
   const qrSvgString = ReactDOMServer.renderToString(
     <QRCodeSVG
-      value={product.sku || product.description}
-      size={50}
+      value={qrPayload}
+      size={250}
       level="M"
       includeMargin={false}
     />,
   );
+
+  const itemTypeHeader = (product.itemType || "BOLT NUT WASHER SET").toUpperCase();
 
   return `
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="utf-8">
-        <title>Label - ${product.sku}</title>
+        <title>Print Label - ${product.sku || product.description}</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
           
-          /* Label size setup: 50mm x 25mm is common for product labels */
-          @page {
-            size: 50mm 25mm;
-            margin: 0;
-          }
-          
-          body {
-            margin: 0;
-            padding: 2mm;
-            width: 46mm;
-            height: 21mm;
+          * {
             box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-            background: white;
-            color: black;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
           }
-          
-          .company {
-            font-size: 6pt;
-            font-weight: 700;
-            text-align: center;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-bottom: 1mm;
+
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
           }
-          
-          .desc {
-            font-size: 5pt;
-            font-weight: 500;
-            text-align: center;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-bottom: 2mm;
-          }
-          
-          .code-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex: 1;
-          }
-          
-          .barcode-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            flex: 1;
-            overflow: hidden;
-          }
-          
-          .qr-container {
-            width: 15mm;
-            height: 15mm;
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-          }
-          
-          svg {
-            max-width: 100%;
+
+          html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
             height: auto;
+            background: white;
+            color: #000;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            -webkit-print-color-adjust: exact;
+          }
+
+          @media print {
+            html, body {
+              margin: 0;
+              padding: 0;
+              width: 100%;
+              height: auto;
+            }
+            .page-break {
+              display: none;
+            }
+            .print-label {
+              width: 90% !important;
+              max-width: none !important;
+              min-height: 90vh !important;
+              margin: auto !important;
+              padding: 24px !important;
+              page-break-after: avoid !important;
+              page-break-before: avoid !important;
+              break-inside: avoid !important;
+            }
+          }
+
+          .print-label {
+            width: 90%;
+            max-width: none;
+            min-height: 90vh;
+            margin: 20px auto;
+            padding: 28px;
+            border: 2.5px solid #000;
+            border-radius: 8px;
+            background: #fff;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            page-break-after: avoid;
+            page-break-before: avoid;
+            break-inside: avoid;
+          }
+
+          .item-type-header {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #000;
+            text-transform: uppercase;
+          }
+
+          .qr-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 16px 0 24px 0;
+          }
+
+          .qr-wrapper svg {
+            display: block;
+            margin: 0 auto;
+            width: 250px;
+            height: 250px;
+          }
+
+          .divider {
+            border-top: 2px dashed #000;
+            margin: 20px 0 24px 0;
+          }
+
+          .specs-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 17px;
+            line-height: 1.8;
+          }
+
+          .specs-table td {
+            padding: 8px 6px;
+            vertical-align: top;
+          }
+
+          .specs-table .label-col {
+            font-weight: 700;
+            width: 200px;
+            white-space: nowrap;
+          }
+
+          .specs-table .separator-col {
+            width: 30px;
+            text-align: center;
+            font-weight: 700;
+          }
+
+          .specs-table .value-col {
+            font-weight: 600;
+            word-break: break-word;
           }
         </style>
       </head>
       <body>
-        <div class="company">${company.name || "Madeena Traders"}</div>
-        <div class="desc">${product.description}</div>
-        <div class="code-row">
-          <div class="barcode-container">
-            ${barcodeSvgString}
-          </div>
-          <div class="qr-container">
+        <div class="print-label">
+          <div class="item-type-header">${itemTypeHeader}</div>
+          
+          <div class="qr-wrapper">
             ${qrSvgString}
           </div>
+
+          <div class="divider"></div>
+
+          <table class="specs-table">
+            <tr>
+              <td class="label-col">SKU</td>
+              <td class="separator-col">:</td>
+              <td class="value-col">${product.sku || "—"}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Description</td>
+              <td class="separator-col">:</td>
+              <td class="value-col">${product.description || "—"}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Size</td>
+              <td class="separator-col">:</td>
+              <td class="value-col">${product.size || "—"}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Finish</td>
+              <td class="separator-col">:</td>
+              <td class="value-col">${product.finish || "—"}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Grade</td>
+              <td class="separator-col">:</td>
+              <td class="value-col">${product.grade || "—"}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Thread Type</td>
+              <td class="separator-col">:</td>
+              <td class="value-col">${product.threadType || "—"}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Thread Length</td>
+              <td class="separator-col">:</td>
+              <td class="value-col">${product.threadLength || "—"}</td>
+            </tr>
+          </table>
         </div>
       </body>
     </html>
   `;
 }
 
-export function printProductLabel(product: ProductMasterEntry, company: Settings["company"]) {
+export function printProductLabel(product: ProductMasterEntry, company?: Settings["company"]) {
   if (!product.sku) {
     alert("This product needs an SKU before printing a label.");
     return;
@@ -133,11 +221,10 @@ export function printProductLabel(product: ProductMasterEntry, company: Settings
 
   const html = buildLabelHtml(product, company);
 
-  // Use popup approach (bypasses adblockers/PDF previewer bugs)
   const popup = window.open(
     "",
     "_blank",
-    "width=400,height=300,toolbar=no,menubar=no,scrollbars=no",
+    "width=800,height=1000,toolbar=no,menubar=no,scrollbars=yes",
   );
   if (!popup) {
     alert("Popup blocked. Please allow popups to print labels.");
@@ -148,13 +235,11 @@ export function printProductLabel(product: ProductMasterEntry, company: Settings
   popup.document.write(html);
   popup.document.close();
 
-  // Wait for images/fonts to load before calling print
   setTimeout(() => {
     popup.focus();
     popup.print();
-    // Close the popup after printing completes or is cancelled
     setTimeout(() => {
       popup.close();
     }, 100);
-  }, 250);
+  }, 300);
 }

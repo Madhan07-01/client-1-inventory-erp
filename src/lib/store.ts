@@ -31,7 +31,7 @@ interface AppState {
   addCustomer: (c: Customer) => void;
   updateCustomer: (c: Customer) => void;
   deleteCustomer: (id: string) => void;
-  upsertProductMaster: (entry: Omit<ProductMasterEntry, "id" | "active">) => void;
+  upsertProductMaster: (entry: Partial<ProductMasterEntry> & { description: string }) => void;
   saveInvoice: (inv: Invoice, oldInv?: Invoice) => void;
   deleteInvoice: (id: string) => void;
   nextInvoiceNumber: () => string;
@@ -182,16 +182,24 @@ export const useApp = create<AppState>()((set, get) => ({
       const desc = entry.description.trim();
       if (!desc) return s;
       const list = s.settings.productMaster;
-      const idx = list.findIndex((x) => x.description.trim().toLowerCase() === desc.toLowerCase());
+      const idx = list.findIndex(
+        (x) => (entry.id && x.id === entry.id) || x.description.trim().toLowerCase() === desc.toLowerCase(),
+      );
       let saved: ProductMasterEntry;
       if (idx === -1) {
         saved = {
-          id: newId(),
+          id: entry.id || newId(),
           sku: entry.sku || "SKU-" + newId().slice(0, 8),
           description: desc,
-          barcodeValue: entry.barcodeValue || "",
-          qrValue: entry.qrValue || "",
-          active: true,
+          barcodeValue: entry.barcodeValue || entry.sku || "",
+          qrValue: entry.qrValue || entry.sku || "",
+          active: entry.active ?? true,
+          itemType: entry.itemType,
+          size: entry.size,
+          finish: entry.finish,
+          grade: entry.grade,
+          threadType: entry.threadType,
+          threadLength: entry.threadLength,
         };
         bg(cloud.upsertProduct(saved), "Save product");
         return {
@@ -203,9 +211,17 @@ export const useApp = create<AppState>()((set, get) => ({
       }
       const updated: ProductMasterEntry = {
         ...list[idx],
+        ...entry,
+        description: desc,
         sku: entry.sku !== undefined ? entry.sku : list[idx].sku,
         barcodeValue: entry.barcodeValue !== undefined ? entry.barcodeValue : list[idx].barcodeValue,
         qrValue: entry.qrValue !== undefined ? entry.qrValue : list[idx].qrValue,
+        itemType: entry.itemType !== undefined ? entry.itemType : list[idx].itemType,
+        size: entry.size !== undefined ? entry.size : list[idx].size,
+        finish: entry.finish !== undefined ? entry.finish : list[idx].finish,
+        grade: entry.grade !== undefined ? entry.grade : list[idx].grade,
+        threadType: entry.threadType !== undefined ? entry.threadType : list[idx].threadType,
+        threadLength: entry.threadLength !== undefined ? entry.threadLength : list[idx].threadLength,
       };
       bg(cloud.upsertProduct(updated), "Update product");
       const next = [...list];

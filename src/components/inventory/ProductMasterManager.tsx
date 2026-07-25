@@ -23,6 +23,12 @@ type EditableProduct = {
   sku: string;
   description: string;
   active: boolean;
+  itemType: string;
+  size: string;
+  finish: string;
+  grade: string;
+  threadType: string;
+  threadLength: string;
 };
 
 function emptyProduct(): EditableProduct {
@@ -31,6 +37,12 @@ function emptyProduct(): EditableProduct {
     sku: "",
     description: "",
     active: true,
+    itemType: "Bolt Nut",
+    size: "",
+    finish: "",
+    grade: "",
+    threadType: "",
+    threadLength: "",
   };
 }
 
@@ -54,7 +66,7 @@ export function ProductMasterManager() {
     const q = query.trim().toLowerCase();
     if (!q) return products;
     return products.filter((p) =>
-      [p.description, p.sku].join(" ").toLowerCase().includes(q),
+      [p.description, p.sku, p.itemType, p.grade, p.finish, p.size].join(" ").toLowerCase().includes(q),
     );
   }, [products, query]);
 
@@ -64,21 +76,40 @@ export function ProductMasterManager() {
       sku: p.sku ?? "",
       description: p.description,
       active: p.active ?? true,
+      itemType: p.itemType ?? "",
+      size: p.size ?? "",
+      finish: p.finish ?? "",
+      grade: p.grade ?? "",
+      threadType: p.threadType ?? "",
+      threadLength: p.threadLength ?? "",
     });
   }
 
   function handleSave() {
     if (!editing) return;
+    if (!editing.sku.trim()) {
+      toast.error("SKU / Product Code is required");
+      return;
+    }
     if (!editing.description.trim()) {
       toast.error("Product description is required");
       return;
     }
-    const sku = editing.sku.trim() || undefined;
+    const itemType = editing.itemType || "Bolt Nut";
+    const sku = editing.sku.trim();
     upsertProduct({
+      id: editing.id || undefined,
       sku,
       description: editing.description.trim(),
       barcodeValue: sku,
       qrValue: sku,
+      active: editing.active,
+      itemType: itemType,
+      size: editing.size.trim() || undefined,
+      finish: editing.finish.trim() || undefined,
+      grade: editing.grade.trim() || undefined,
+      threadType: editing.threadType || undefined,
+      threadLength: editing.threadLength.trim() || undefined,
     });
     toast.success(editing.id ? "Product updated" : "Product added");
     setEditing(null);
@@ -90,10 +121,12 @@ export function ProductMasterManager() {
       const updated = { ...p, active: false };
       await cloud.upsertProduct(updated);
       upsertProduct({
+        id: updated.id,
         sku: updated.sku,
         description: updated.description,
         barcodeValue: updated.barcodeValue,
         qrValue: updated.qrValue,
+        active: false,
       });
       toast.success("Product deactivated");
     } catch {
@@ -105,10 +138,12 @@ export function ProductMasterManager() {
     const updated = { ...p, active: !p.active };
     cloud.upsertProduct(updated).catch(() => toast.error("Sync failed"));
     upsertProduct({
+      id: updated.id,
       sku: updated.sku,
       description: updated.description,
       barcodeValue: updated.barcodeValue,
       qrValue: updated.qrValue,
+      active: updated.active,
     });
     toast.success(updated.active ? "Product activated" : "Product deactivated");
   }
@@ -126,7 +161,7 @@ export function ProductMasterManager() {
           <div>
             <h2 className="text-xl font-bold">Products</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Manage your product catalogue. Inventory details (lot, supplier, size, grade, finish) are managed through Warehouse Ledger Adjustments.
+              Manage your product catalogue and specifications.
             </p>
           </div>
           <Button onClick={() => setEditing(emptyProduct())} className="gap-2">
@@ -135,9 +170,9 @@ export function ProductMasterManager() {
           </Button>
         </div>
 
-        <div className="rounded-lg border bg-white">
+        <div className="rounded-lg border bg-white overflow-x-auto w-full">
           <div className="px-4 py-3 border-b flex items-center gap-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
+            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -152,14 +187,14 @@ export function ProductMasterManager() {
                 : "No matches for your search."}
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full text-xs sm:text-sm min-w-[550px]">
               <thead className="text-left text-muted-foreground">
                 <tr className="border-b">
-                  <th className="px-5 py-3 font-medium">SKU</th>
-                  <th className="px-5 py-3 font-medium">Description</th>
-                  <th className="px-5 py-3 font-medium text-right">Total Stock</th>
-                  <th className="px-5 py-3 font-medium text-center">Status</th>
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
+                  <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium">SKU</th>
+                  <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium">Description</th>
+                  <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium text-right">Total Stock</th>
+                  <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium text-center">Status</th>
+                  <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -171,16 +206,16 @@ export function ProductMasterManager() {
                       !p.active ? "opacity-50" : "",
                     ].join(" ")}
                   >
-                    <td className="px-5 py-3 font-mono text-xs">{p.sku || "—"}</td>
-                    <td className="px-5 py-3 font-medium">{p.description}</td>
-                    <td className="px-5 py-3 text-right">
+                    <td className="px-3 py-2.5 sm:px-5 sm:py-3 font-mono text-xs break-all">{p.sku || "—"}</td>
+                    <td className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium break-words">{p.description}</td>
+                    <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-right whitespace-nowrap">
                       <span
                         className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getProductStock(p.id) <= 0 ? "bg-red-100 text-red-800" : getProductStock(p.id) < 10 ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800"}`}
                       >
                         {getProductStock(p.id)}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-center">
+                    <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-center whitespace-nowrap">
                       <button type="button" onClick={() => handleToggleActive(p)}>
                         <Badge
                           variant={p.active ? "default" : "secondary"}
@@ -190,8 +225,8 @@ export function ProductMasterManager() {
                         </Badge>
                       </button>
                     </td>
-                    <td className="px-5 py-3 text-right">
-                      <div className="inline-flex gap-1">
+                    <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center justify-end gap-1 shrink-0">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -218,48 +253,102 @@ export function ProductMasterManager() {
 
       {/* Product Dialog */}
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>{editing?.id ? "Edit Product" : "Add Product"}</DialogTitle>
           </DialogHeader>
           {editing && (
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">SKU / Product Code</Label>
-                <Input
-                  value={editing.sku}
-                  onChange={(e) =>
-                    setEditing({
-                      ...editing,
-                      sku: e.target.value.toUpperCase().replace(/\s+/g, "-"),
-                    })
-                  }
-                  placeholder="e.g. BOLT-M10"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">SKU / Product Code *</Label>
+                  <Input
+                    value={editing.sku}
+                    onChange={(e) =>
+                      setEditing({
+                        ...editing,
+                        sku: e.target.value.toUpperCase().replace(/\s+/g, "-"),
+                      })
+                    }
+                    placeholder="e.g. BOLT-M10-50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Item Type *</Label>
+                  <select
+                    value={editing.itemType}
+                    onChange={(e) => setEditing({ ...editing, itemType: e.target.value })}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">Select Item Type</option>
+                    <option value="Bolt Nut">Bolt Nut</option>
+                    <option value="Bolt Nut Washer Set">Bolt Nut Washer Set</option>
+                    <option value="Only Bolt">Only Bolt</option>
+                  </select>
+                </div>
               </div>
+
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Product Description *</Label>
                 <Input
                   value={editing.description}
                   onChange={(e) => setEditing({ ...editing, description: e.target.value })}
-                  placeholder="e.g. Hex Bolt M10x50"
+                  placeholder="e.g. Hex Bolt M10x50 SS"
                 />
               </div>
-              <p className="text-xs text-muted-foreground rounded-md bg-muted/40 p-3">
-                💡 Inventory details like size, grade, finish, lot number, supplier and purchase rate are managed through <strong>Warehouse Ledger Adjustments</strong> — not here.
-              </p>
-              {editing.sku && (
-                <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-                  <div>
-                    Barcode (Code 128):{" "}
-                    <span className="font-mono font-medium text-foreground">{editing.sku}</span>
-                  </div>
-                  <div>
-                    QR Code:{" "}
-                    <span className="font-mono font-medium text-foreground">{editing.sku}</span>
-                  </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Size</Label>
+                  <Input
+                    value={editing.size}
+                    onChange={(e) => setEditing({ ...editing, size: e.target.value })}
+                    placeholder="e.g. M16 x 35"
+                  />
                 </div>
-              )}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Finish</Label>
+                  <Input
+                    value={editing.finish}
+                    onChange={(e) => setEditing({ ...editing, finish: e.target.value })}
+                    placeholder="e.g. Zinc"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Grade</Label>
+                  <Input
+                    value={editing.grade}
+                    onChange={(e) => setEditing({ ...editing, grade: e.target.value })}
+                    placeholder="e.g. 8.8"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Thread Type</Label>
+                  <select
+                    value={editing.threadType}
+                    onChange={(e) => setEditing({ ...editing, threadType: e.target.value })}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">Select Thread Type</option>
+                    <option value="Full Thread">Full Thread</option>
+                    <option value="Half Thread">Half Thread</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Thread Length (Optional)</Label>
+                  <Input
+                    value={editing.threadLength}
+                    onChange={(e) => setEditing({ ...editing, threadLength: e.target.value })}
+                    placeholder="e.g. 25 mm"
+                  />
+                </div>
+              </div>
             </div>
           )}
           <DialogFooter>

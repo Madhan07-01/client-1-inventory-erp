@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: draft-invoices.spec.ts >> Save as Draft E2E Suite >> Tier 4: Real-World Application Scenarios >> Scenario 5: Edit Draft and Finalize stock impacts
-- Location: tests\draft-invoices.spec.ts:906:5
+- Name: draft-invoices.spec.ts >> Save as Draft E2E Suite >> Tier 4: Real-World Application Scenarios >> Scenario 2: Multi-Warehouse Stock Isolation
+- Location: tests\draft-invoices.spec.ts:733:5
 
 # Error details
 

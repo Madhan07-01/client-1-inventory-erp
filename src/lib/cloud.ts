@@ -54,16 +54,19 @@ export function rowToProduct(r: Row): ProductMasterEntry {
     barcodeValue: (r.barcode_value as string) ?? undefined,
     qrValue: (r.qr_value as string) ?? undefined,
     active: (r.active as boolean) ?? true,
+    itemType: (r.item_type as string) ?? undefined,
+    size: (r.size as string) ?? undefined,
+    finish: (r.finish as string) ?? undefined,
+    grade: (r.grade as string) ?? undefined,
+    threadType: (r.thread_type as string) ?? (r.tread as string) ?? undefined,
+    threadLength: (r.thread_length as string) ?? undefined,
     // Legacy fields — read-only, backward compat with old records
     hsn: (r.hsn as string) ?? undefined,
     gstPercent: r.gst_percent != null ? Number(r.gst_percent) : undefined,
     defaultRate: r.default_rate != null ? Number(r.default_rate) : undefined,
     lotNo: (r.lot_no as string) ?? undefined,
     goodsFrom: (r.goods_from as string) ?? undefined,
-    size: (r.size as string) ?? undefined,
     tread: (r.tread as string) ?? undefined,
-    grade: (r.grade as string) ?? undefined,
-    finish: (r.finish as string) ?? undefined,
   };
 }
 
@@ -76,16 +79,19 @@ export function productToRow(p: ProductMasterEntry, userId: string) {
     barcode_value: p.barcodeValue ?? null,
     qr_value: p.qrValue ?? null,
     active: p.active ?? true,
+    item_type: p.itemType ?? null,
+    size: p.size ?? null,
+    finish: p.finish ?? null,
+    grade: p.grade ?? null,
+    thread_type: p.threadType ?? null,
+    thread_length: p.threadLength ?? null,
     // Legacy fields preserved for backward compat
     hsn: p.hsn ?? null,
     gst_percent: p.gstPercent ?? null,
     default_rate: p.defaultRate ?? null,
     lot_no: p.lotNo ?? null,
     goods_from: p.goodsFrom ?? null,
-    size: p.size ?? null,
-    tread: p.tread ?? null,
-    grade: p.grade ?? null,
-    finish: p.finish ?? null,
+    tread: p.tread ?? p.threadType ?? null,
   };
 }
 

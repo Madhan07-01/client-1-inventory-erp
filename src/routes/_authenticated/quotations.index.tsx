@@ -132,24 +132,24 @@ function QuotationsList() {
 
   return (
     <AppShell>
-      <div className="p-8 space-y-6">
-        <div className="flex items-end justify-between gap-4 flex-wrap">
+      <div className="p-4 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Quotations</h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h1 className="text-xl sm:text-2xl font-bold">Quotations</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Create, revise, and convert pre-sales quotations.
             </p>
           </div>
-          <Button onClick={() => navigate({ to: "/quotations/new" })} className="gap-2">
+          <Button onClick={() => navigate({ to: "/quotations/new" })} className="gap-2 w-full sm:w-auto">
             <Plus className="h-4 w-4" />
             New Quotation
           </Button>
         </div>
 
-        <div className="rounded-lg border bg-white">
+        <div className="rounded-lg border bg-white overflow-x-auto w-full">
           <div className="px-4 py-3 border-b flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-              <Search className="h-4 w-4 text-muted-foreground" />
+              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -176,16 +176,16 @@ function QuotationsList() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-xs sm:text-sm min-w-[650px]">
                 <thead className="text-left text-muted-foreground">
                   <tr className="border-b">
-                    <th className="px-5 py-3 font-medium">Quotation #</th>
-                    <th className="px-5 py-3 font-medium">Customer</th>
-                    <th className="px-5 py-3 font-medium">Date</th>
-                    <th className="px-5 py-3 font-medium">Valid Until</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
-                    <th className="px-5 py-3 font-medium text-right">Total</th>
-                    <th className="px-5 py-3 font-medium text-right">Actions</th>
+                    <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium">Quotation #</th>
+                    <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium">Customer</th>
+                    <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium">Date</th>
+                    <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium">Valid Until</th>
+                    <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium">Status</th>
+                    <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium text-right">Total</th>
+                    <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -197,7 +197,7 @@ function QuotationsList() {
                       status === "converted" || status === "cancelled" || status === "expired";
                     return (
                       <tr key={quo.id} className="border-b last:border-0 hover:bg-muted/40">
-                        <td className="px-5 py-3">
+                        <td className="px-3 py-2.5 sm:px-5 sm:py-3 whitespace-nowrap">
                           <Link
                             to="/quotations/$id"
                             params={{ id: quo.id }}
@@ -206,19 +206,19 @@ function QuotationsList() {
                             {quo.number}
                           </Link>
                         </td>
-                        <td className="px-5 py-3">{quo.customer.name}</td>
-                        <td className="px-5 py-3">{formatDate(quo.date)}</td>
-                        <td className="px-5 py-3">
+                        <td className="px-3 py-2.5 sm:px-5 sm:py-3 break-words max-w-[180px]">{quo.customer.name}</td>
+                        <td className="px-3 py-2.5 sm:px-5 sm:py-3 whitespace-nowrap">{formatDate(quo.date)}</td>
+                        <td className="px-3 py-2.5 sm:px-5 sm:py-3 whitespace-nowrap">
                           {quo.validityDate ? formatDate(quo.validityDate) : "—"}
                         </td>
-                        <td className="px-5 py-3">
+                        <td className="px-3 py-2.5 sm:px-5 sm:py-3 whitespace-nowrap">
                           <Badge className={meta.className}>{meta.label}</Badge>
                         </td>
-                        <td className="px-5 py-3 text-right tabular-nums">
+                        <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-right tabular-nums whitespace-nowrap">
                           {formatINR(t.grandTotal)}
                         </td>
-                        <td className="px-5 py-3 text-right">
-                          <div className="inline-flex gap-1">
+                        <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center justify-end gap-1 shrink-0">
                             <Button
                               variant="ghost"
                               size="sm"

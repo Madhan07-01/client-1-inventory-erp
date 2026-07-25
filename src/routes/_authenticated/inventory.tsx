@@ -277,28 +277,28 @@ function InventoryPage() {
 
   return (
     <AppShell>
-      <div className="p-8 max-w-6xl mx-auto space-y-6">
+      <div className="p-4 sm:p-8 max-w-6xl mx-auto space-y-6">
         <Tabs defaultValue="ledger">
-          <TabsList className="mb-6">
-            <TabsTrigger value="ledger">Stock Ledger</TabsTrigger>
-            <TabsTrigger value="products">Product Master</TabsTrigger>
-            <TabsTrigger value="warehouses">Warehouses & Locations</TabsTrigger>
+          <TabsList className="mb-6 flex overflow-x-auto whitespace-nowrap max-w-full justify-start gap-1 p-1">
+            <TabsTrigger value="ledger" className="shrink-0">Stock Ledger</TabsTrigger>
+            <TabsTrigger value="products" className="shrink-0">Product Master</TabsTrigger>
+            <TabsTrigger value="warehouses" className="shrink-0">Warehouses & Locations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="ledger" className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold">Inventory Ledger</h1>
-                <p className="text-muted-foreground text-sm">
+                <h1 className="text-xl sm:text-2xl font-bold">Inventory Ledger</h1>
+                <p className="text-muted-foreground text-xs sm:text-sm">
                   Each row is one inventory batch (product + warehouse + lot).
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setExportDialogOpen(true)} className="gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button variant="outline" onClick={() => setExportDialogOpen(true)} className="gap-2 w-full sm:w-auto">
                   <Download className="w-4 h-4" />
                   Export Report
                 </Button>
-                <Button onClick={() => { setAdjustData(emptyAdjust()); setIsAdjusting(true); }} className="gap-2">
+                <Button onClick={() => { setAdjustData(emptyAdjust()); setIsAdjusting(true); }} className="gap-2 w-full sm:w-auto">
                   <ScanBarcode className="w-4 h-4" />
                   Adjust Stock
                 </Button>
@@ -446,20 +446,20 @@ function InventoryPage() {
               </div>
             )}
 
-            <div className="bg-white border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="bg-white border rounded-lg overflow-x-auto w-full">
+              <table className="w-full text-xs sm:text-sm min-w-[650px]">
                 <thead className="bg-muted/50 text-left border-b">
                   <tr>
-                    <th className="px-4 py-3 font-medium w-8"></th>
-                    <th className="px-4 py-3 font-medium">Product</th>
-                    <th className="px-4 py-3 font-medium">SKU</th>
-                    <th className="px-4 py-3 font-medium">Warehouse</th>
-                    <th className="px-4 py-3 font-medium">Location</th>
-                    <th className="px-4 py-3 font-medium">Lot No</th>
-                    <th className="px-4 py-3 font-medium">Size</th>
-                    <th className="px-4 py-3 font-medium">Grade</th>
-                    <th className="px-4 py-3 font-medium text-right">Stock</th>
-                    <th className="px-4 py-3 font-medium w-12 text-center">Actions</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium w-8"></th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium">Product</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium">SKU</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium">Warehouse</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium">Location</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium">Lot No</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium">Size</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium">Grade</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium text-right">Stock</th>
+                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium w-16 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -476,63 +476,65 @@ function InventoryPage() {
                       return (
                         <>
                           <tr key={row.id || i} className="hover:bg-muted/20">
-                            <td className="px-4 py-3 text-center">
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 text-center">
                               {hasDetails && (
                                 <button onClick={() => toggleRow(row.id || String(i))} className="text-muted-foreground hover:text-foreground">
                                   {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                 </button>
                               )}
                             </td>
-                            <td className="px-4 py-3 font-medium">{row.productName}</td>
-                            <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{row.sku}</td>
-                            <td className="px-4 py-3">{row.warehouseName}</td>
-                            <td className="px-4 py-3 text-muted-foreground">{row.locationName}</td>
-                            <td className="px-4 py-3 font-mono text-xs">{row.lotNo}</td>
-                            <td className="px-4 py-3">{row.size}</td>
-                            <td className="px-4 py-3">{row.grade}</td>
-                            <td className="px-4 py-3 text-right">
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium break-words max-w-[200px]">{row.productName}</td>
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 text-muted-foreground font-mono text-xs break-all">{row.sku}</td>
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">{row.warehouseName}</td>
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 text-muted-foreground whitespace-nowrap">{row.locationName}</td>
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 font-mono text-xs whitespace-nowrap">{row.lotNo}</td>
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">{row.size}</td>
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap">{row.grade}</td>
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 text-right whitespace-nowrap">
                               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${row.quantity <= 0 ? "bg-red-100 text-red-800" : row.quantity < 10 ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800"}`}>
                                 {row.quantity}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-center">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="Adjust Stock"
-                                onClick={() => {
-                                  setAdjustData({
-                                    ...emptyAdjust(),
-                                    productId: row.productId,
-                                    warehouseId: row.warehouseId,
-                                    locationId: row.locationId,
-                                    lotNo: row.lotNo !== "-" ? row.lotNo : "",
-                                  });
-                                  setIsAdjusting(true);
-                                  window.scrollTo({ top: 0, behavior: "smooth" });
-                                }}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="Delete Stock Record"
-                                className="text-red-500 hover:text-red-700"
-                                onClick={() => {
-                                  if (window.confirm("Are you sure you want to delete this ledger entry? This cannot be undone.")) {
-                                    deleteInventoryStock(row.id as string);
-                                    toast.success("Ledger entry deleted.");
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3 text-center whitespace-nowrap">
+                              <div className="inline-flex items-center justify-center gap-0.5 shrink-0">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Adjust Stock"
+                                  onClick={() => {
+                                    setAdjustData({
+                                      ...emptyAdjust(),
+                                      productId: row.productId,
+                                      warehouseId: row.warehouseId,
+                                      locationId: row.locationId,
+                                      lotNo: row.lotNo !== "-" ? row.lotNo : "",
+                                    });
+                                    setIsAdjusting(true);
+                                    window.scrollTo({ top: 0, behavior: "smooth" });
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Delete Stock Record"
+                                  className="text-red-500 hover:text-red-700"
+                                  onClick={() => {
+                                    if (window.confirm("Are you sure you want to delete this ledger entry? This cannot be undone.")) {
+                                      deleteInventoryStock(row.id as string);
+                                      toast.success("Ledger entry deleted.");
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                           {isExpanded && hasDetails && (
                             <tr key={`${row.id}-detail`} className="bg-muted/10">
-                              <td colSpan={10} className="px-8 py-3">
+                              <td colSpan={10} className="px-4 py-3 sm:px-8">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-muted-foreground">
                                   <div><span className="font-medium text-foreground">Supplier:</span> {row.supplier}</div>
                                   <div><span className="font-medium text-foreground">Purchase Date:</span> {row.purchaseDate}</div>

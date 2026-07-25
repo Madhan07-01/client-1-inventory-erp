@@ -61,17 +61,20 @@ export interface ProductMasterEntry {
   sku?: string;
   barcodeValue?: string;
   qrValue?: string;
+  // Hardware specifications
+  itemType?: string;
+  size?: string;
+  finish?: string;
+  grade?: string;
+  threadType?: string;
+  threadLength?: string;
   // Legacy fields — kept for backward compatibility with existing stored data.
-  // No longer written or surfaced in UI; use InventoryStock batch fields instead.
   hsn?: string;
   gstPercent?: number;
   defaultRate?: number;
   lotNo?: string;
   goodsFrom?: string;
-  size?: string;
   tread?: string;
-  grade?: string;
-  finish?: string;
 }
 
 export type SupplyType = "WITHIN_STATE" | "OTHER_STATE";

@@ -62,23 +62,23 @@ function CustomersPage() {
 
   return (
     <AppShell>
-      <div className="p-8 space-y-6">
-        <div className="flex items-end justify-between gap-4 flex-wrap">
+      <div className="p-4 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Customers</h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h1 className="text-xl sm:text-2xl font-bold">Customers</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Manage the people and businesses you bill.
             </p>
           </div>
-          <Button onClick={() => setEditing(emptyCustomer())} className="gap-2">
+          <Button onClick={() => setEditing(emptyCustomer())} className="gap-2 w-full sm:w-auto">
             <Plus className="h-4 w-4" />
             Add Customer
           </Button>
         </div>
 
-        <div className="rounded-lg border bg-white">
+        <div className="rounded-lg border bg-white overflow-x-auto w-full">
           <div className="px-4 py-3 border-b flex items-center gap-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
+            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -91,25 +91,25 @@ function CustomersPage() {
               {customers.length === 0 ? "No customers yet." : "No matches for your search."}
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full text-xs sm:text-sm min-w-[600px]">
               <thead className="text-left text-muted-foreground">
                 <tr className="border-b">
-                  <th className="px-5 py-3 font-medium">Name</th>
-                  <th className="px-5 py-3 font-medium">Phone</th>
-                  <th className="px-5 py-3 font-medium">GSTIN</th>
-                  <th className="px-5 py-3 font-medium">Address</th>
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
+                  <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium">Name</th>
+                  <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium">Phone</th>
+                  <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium">GSTIN</th>
+                  <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium">Address</th>
+                  <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((c) => (
                   <tr key={c.id} className="border-b last:border-0 hover:bg-muted/40">
-                    <td className="px-5 py-3 font-medium">{c.name}</td>
-                    <td className="px-5 py-3">{c.phone}</td>
-                    <td className="px-5 py-3 font-mono text-xs">{c.gstin}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{c.address}</td>
-                    <td className="px-5 py-3 text-right">
-                      <div className="inline-flex gap-1">
+                    <td className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium break-words max-w-[180px]">{c.name}</td>
+                    <td className="px-3 py-2.5 sm:px-5 sm:py-3 whitespace-nowrap">{c.phone}</td>
+                    <td className="px-3 py-2.5 sm:px-5 sm:py-3 font-mono text-xs break-all">{c.gstin}</td>
+                    <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-muted-foreground break-words max-w-[250px]">{c.address}</td>
+                    <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center justify-end gap-1 shrink-0">
                         <Button variant="ghost" size="sm" onClick={() => setEditing({ ...c })}>
                           <Pencil className="h-4 w-4" />
                         </Button>

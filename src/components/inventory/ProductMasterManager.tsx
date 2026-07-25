@@ -22,6 +22,8 @@ type EditableProduct = {
   id: string;
   sku: string;
   description: string;
+  hsn: string;
+  brandName: string;
   active: boolean;
   itemType: string;
   size: string;
@@ -36,6 +38,8 @@ function emptyProduct(): EditableProduct {
     id: "",
     sku: "",
     description: "",
+    hsn: "",
+    brandName: "",
     active: true,
     itemType: "Bolt Nut",
     size: "",
@@ -66,7 +70,7 @@ export function ProductMasterManager() {
     const q = query.trim().toLowerCase();
     if (!q) return products;
     return products.filter((p) =>
-      [p.description, p.sku, p.itemType, p.grade, p.finish, p.size].join(" ").toLowerCase().includes(q),
+      [p.description, p.sku, p.itemType, p.grade, p.finish, p.size, p.hsn, p.brandName].join(" ").toLowerCase().includes(q),
     );
   }, [products, query]);
 
@@ -75,6 +79,8 @@ export function ProductMasterManager() {
       id: p.id,
       sku: p.sku ?? "",
       description: p.description,
+      hsn: p.hsn ?? "",
+      brandName: p.brandName ?? "",
       active: p.active ?? true,
       itemType: p.itemType ?? "",
       size: p.size ?? "",
@@ -101,6 +107,8 @@ export function ProductMasterManager() {
       id: editing.id || undefined,
       sku,
       description: editing.description.trim(),
+      hsn: editing.hsn.trim() || undefined,
+      brandName: editing.brandName.trim() || undefined,
       barcodeValue: sku,
       qrValue: sku,
       active: editing.active,
@@ -288,13 +296,23 @@ export function ProductMasterManager() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Product Description *</Label>
-                <Input
-                  value={editing.description}
-                  onChange={(e) => setEditing({ ...editing, description: e.target.value })}
-                  placeholder="e.g. Hex Bolt M10x50 SS"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Product Description *</Label>
+                  <Input
+                    value={editing.description}
+                    onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+                    placeholder="e.g. Hex Bolt M10x50 SS"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">HSN / SAC Code</Label>
+                  <Input
+                    value={editing.hsn}
+                    onChange={(e) => setEditing({ ...editing, hsn: e.target.value })}
+                    placeholder="e.g. 7318"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

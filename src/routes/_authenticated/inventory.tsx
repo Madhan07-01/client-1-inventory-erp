@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductMasterManager } from "@/components/inventory/ProductMasterManager";
 import { WarehouseManager } from "@/components/inventory/WarehouseManager";
 import { Pencil } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
@@ -28,15 +29,19 @@ type AdjustData = {
   type: "IN" | "OUT";
   qty: string;
   notes: string;
+  remarks?: string;
   // Batch / variant fields
   lotNo: string;
+  brandName: string;
   supplier: string;
+  goodsFrom?: string;
   purchaseDate: string;
   purchaseRate: string;
   purchaseRef: string;
   size: string;
   grade: string;
   thread: string;
+  threadType?: string;
   finish: string;
 };
 
@@ -48,14 +53,18 @@ function emptyAdjust(): AdjustData {
     type: "IN",
     qty: "",
     notes: "",
+    remarks: "",
     lotNo: "",
+    brandName: "",
     supplier: "",
+    goodsFrom: "",
     purchaseDate: "",
     purchaseRate: "",
     purchaseRef: "",
     size: "",
     grade: "",
     thread: "",
+    threadType: "",
     finish: "",
   };
 }
@@ -130,14 +139,24 @@ function InventoryPage() {
           updatedAt: now,
           // Update batch fields if provided
           ...(adjustData.lotNo && { lotNo: adjustData.lotNo }),
-          ...(adjustData.supplier && { supplier: adjustData.supplier }),
+          ...(adjustData.brandName && { brandName: adjustData.brandName }),
+          ...((adjustData.goodsFrom || adjustData.supplier) && {
+            supplier: adjustData.goodsFrom || adjustData.supplier,
+            goodsFrom: adjustData.goodsFrom || adjustData.supplier,
+          }),
           ...(adjustData.purchaseDate && { purchaseDate: adjustData.purchaseDate }),
           ...(adjustData.purchaseRate && { purchaseRate: Number(adjustData.purchaseRate) }),
           ...(adjustData.purchaseRef && { purchaseRef: adjustData.purchaseRef }),
           ...(adjustData.size && { size: adjustData.size }),
           ...(adjustData.grade && { grade: adjustData.grade }),
-          ...(adjustData.thread && { thread: adjustData.thread }),
+          ...((adjustData.threadType || adjustData.thread) && {
+            thread: adjustData.threadType || adjustData.thread,
+            threadType: adjustData.threadType || adjustData.thread,
+          }),
           ...(adjustData.finish && { finish: adjustData.finish }),
+          ...((adjustData.remarks || adjustData.notes) && {
+            remarks: adjustData.remarks || adjustData.notes,
+          }),
         }
       : {
           id: newId(),
@@ -147,14 +166,18 @@ function InventoryPage() {
           quantity: newQty,
           updatedAt: now,
           lotNo: adjustData.lotNo || undefined,
-          supplier: adjustData.supplier || undefined,
+          brandName: adjustData.brandName || undefined,
+          supplier: adjustData.goodsFrom || adjustData.supplier || undefined,
+          goodsFrom: adjustData.goodsFrom || adjustData.supplier || undefined,
           purchaseDate: adjustData.purchaseDate || undefined,
           purchaseRate: adjustData.purchaseRate ? Number(adjustData.purchaseRate) : undefined,
           purchaseRef: adjustData.purchaseRef || undefined,
           size: adjustData.size || undefined,
           grade: adjustData.grade || undefined,
-          thread: adjustData.thread || undefined,
+          thread: adjustData.threadType || adjustData.thread || undefined,
+          threadType: adjustData.threadType || adjustData.thread || undefined,
           finish: adjustData.finish || undefined,
+          remarks: adjustData.remarks || adjustData.notes || undefined,
         };
 
     const txn: InventoryTransaction = {
@@ -165,7 +188,13 @@ function InventoryPage() {
       quantityChange: change,
       transactionType: adjustData.type,
       referenceType: "MANUAL_ADJUSTMENT",
-      notes: adjustData.notes,
+      notes: adjustData.remarks || adjustData.notes || undefined,
+      remarks: adjustData.remarks || adjustData.notes || undefined,
+      brandName: adjustData.brandName || undefined,
+      goodsFrom: adjustData.goodsFrom || adjustData.supplier || undefined,
+      supplier: adjustData.goodsFrom || adjustData.supplier || undefined,
+      lotNo: adjustData.lotNo || undefined,
+      threadType: adjustData.threadType || adjustData.thread || undefined,
       createdAt: now,
     };
 
@@ -394,8 +423,12 @@ function InventoryPage() {
                         <Input className="mt-1" placeholder="e.g. LOT-2024-001" value={adjustData.lotNo} onChange={(e) => patch({ lotNo: e.target.value })} />
                       </div>
                       <div>
-                        <Label>Supplier</Label>
-                        <Input className="mt-1" placeholder="Supplier name" value={adjustData.supplier} onChange={(e) => patch({ supplier: e.target.value })} />
+                        <Label>Brand Name</Label>
+                        <Input className="mt-1" placeholder="e.g. TVS, Unbrako, LPS, Tata, ABC Fasteners" value={adjustData.brandName} onChange={(e) => patch({ brandName: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Goods From</Label>
+                        <Input className="mt-1" placeholder="Supplier / Vendor name" value={adjustData.goodsFrom ?? adjustData.supplier} onChange={(e) => patch({ goodsFrom: e.target.value, supplier: e.target.value })} />
                       </div>
                       <div>
                         <Label>Purchase Date</Label>
@@ -419,7 +452,15 @@ function InventoryPage() {
                       </div>
                       <div>
                         <Label>Thread</Label>
-                        <Input className="mt-1" placeholder="e.g. half, full, long" value={adjustData.thread} onChange={(e) => patch({ thread: e.target.value })} />
+                        <Select value={adjustData.threadType || adjustData.thread || ""} onValueChange={(val) => patch({ threadType: val, thread: val })}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Select Thread" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Full Thread">Full Thread</SelectItem>
+                            <SelectItem value="Half Thread">Half Thread</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label>Finish</Label>
@@ -429,12 +470,12 @@ function InventoryPage() {
                   </div>
 
                   <div className="pt-2">
-                    <Label>Notes / Reason</Label>
+                    <Label>Remarks</Label>
                     <Input
                       className="mt-1"
                       placeholder="e.g. Initial stock, Damaged goods, Manual recount"
-                      value={adjustData.notes}
-                      onChange={(e) => patch({ notes: e.target.value })}
+                      value={adjustData.remarks ?? adjustData.notes}
+                      onChange={(e) => patch({ remarks: e.target.value, notes: e.target.value })}
                     />
                   </div>
 

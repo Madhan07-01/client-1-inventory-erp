@@ -8,8 +8,11 @@ import type { ProductMasterEntry, Settings } from "@/lib/types";
  */
 function buildLabelHtml(product: ProductMasterEntry, _company?: Settings["company"]) {
   const payloadObj = {
+    productId: product.id || "",
     sku: product.sku || "",
     description: product.description || "",
+    brandName: product.brandName || "",
+    lotNumber: product.lotNo || "",
     itemType: product.itemType || "",
     size: product.size || "",
     finish: product.finish || "",
@@ -191,6 +194,16 @@ function buildLabelHtml(product: ProductMasterEntry, _company?: Settings["compan
               <td class="label-col">Description</td>
               <td class="separator-col">:</td>
               <td class="value-col">${product.description || "—"}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Brand</td>
+              <td class="separator-col">:</td>
+              <td class="value-col">${product.brandName || "—"}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Lot Number</td>
+              <td class="separator-col">:</td>
+              <td class="value-col">${product.lotNo || "—"}</td>
             </tr>
             <tr>
               <td class="label-col">Finish</td>

@@ -191,6 +191,8 @@ export const useApp = create<AppState>()((set, get) => ({
           id: entry.id || newId(),
           sku: entry.sku || "SKU-" + newId().slice(0, 8),
           description: desc,
+          hsn: entry.hsn,
+          brandName: entry.brandName,
           barcodeValue: entry.barcodeValue || entry.sku || "",
           qrValue: entry.qrValue || entry.sku || "",
           active: entry.active ?? true,

@@ -68,6 +68,7 @@ export interface ProductMasterEntry {
   grade?: string;
   threadType?: string;
   threadLength?: string;
+  brandName?: string;
   // Legacy fields — kept for backward compatibility with existing stored data.
   hsn?: string;
   gstPercent?: number;
@@ -207,14 +208,18 @@ export interface InventoryStock {
   updatedAt?: string;
   // --- Batch / variant fields (Warehouse Ledger Adjustment) ---
   lotNo?: string;
+  brandName?: string;
   supplier?: string;
+  goodsFrom?: string;
   purchaseDate?: string;
   purchaseRate?: number;
   purchaseRef?: string;
   size?: string;
   grade?: string;
   thread?: string;
+  threadType?: string;
   finish?: string;
+  remarks?: string;
   /** Available-for-sale qty (may differ from quantity if some are reserved) */
   availableQty?: number;
 }
@@ -229,6 +234,12 @@ export interface InventoryTransaction {
   referenceType?: string;
   referenceId?: string;
   notes?: string;
+  remarks?: string;
+  brandName?: string;
+  supplier?: string;
+  goodsFrom?: string;
+  lotNo?: string;
+  threadType?: string;
   createdAt?: string;
 }
 

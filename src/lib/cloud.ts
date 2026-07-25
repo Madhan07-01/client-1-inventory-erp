@@ -60,6 +60,7 @@ export function rowToProduct(r: Row): ProductMasterEntry {
     grade: (r.grade as string) ?? undefined,
     threadType: (r.thread_type as string) ?? (r.tread as string) ?? undefined,
     threadLength: (r.thread_length as string) ?? undefined,
+    brandName: (r.brand_name as string) ?? undefined,
     // Legacy fields — read-only, backward compat with old records
     hsn: (r.hsn as string) ?? undefined,
     gstPercent: r.gst_percent != null ? Number(r.gst_percent) : undefined,
@@ -85,6 +86,7 @@ export function productToRow(p: ProductMasterEntry, userId: string) {
     grade: p.grade ?? null,
     thread_type: p.threadType ?? null,
     thread_length: p.threadLength ?? null,
+    brand_name: p.brandName ?? null,
     // Legacy fields preserved for backward compat
     hsn: p.hsn ?? null,
     gst_percent: p.gstPercent ?? null,
@@ -341,14 +343,18 @@ export function rowToStock(r: Row): InventoryStock {
     updatedAt: r.updated_at as string,
     // Batch / variant fields
     lotNo: (r.lot_no as string) ?? undefined,
+    brandName: (r.brand_name as string) ?? undefined,
     supplier: (r.supplier as string) ?? undefined,
+    goodsFrom: (r.supplier as string) ?? undefined,
     purchaseDate: (r.purchase_date as string) ?? undefined,
     purchaseRate: r.purchase_rate != null ? Number(r.purchase_rate) : undefined,
     purchaseRef: (r.purchase_ref as string) ?? undefined,
     size: (r.size as string) ?? undefined,
     grade: (r.grade as string) ?? undefined,
-    thread: (r.thread as string) ?? undefined,
+    thread: (r.thread_type as string) ?? (r.thread as string) ?? undefined,
+    threadType: (r.thread_type as string) ?? (r.thread as string) ?? undefined,
     finish: (r.finish as string) ?? undefined,
+    remarks: (r.remarks as string) ?? undefined,
     availableQty: r.available_qty != null ? Number(r.available_qty) : undefined,
   };
 }
@@ -361,17 +367,17 @@ export function stockToRow(s: InventoryStock, userId: string) {
     warehouse_id: s.warehouseId,
     location_id: s.locationId,
     quantity: s.quantity,
-    // Batch / variant fields
     lot_no: s.lotNo ?? null,
-    supplier: s.supplier ?? null,
+    brand_name: s.brandName ?? null,
+    supplier: s.goodsFrom ?? s.supplier ?? null,
     purchase_date: s.purchaseDate ?? null,
     purchase_rate: s.purchaseRate ?? null,
     purchase_ref: s.purchaseRef ?? null,
     size: s.size ?? null,
     grade: s.grade ?? null,
-    thread: s.thread ?? null,
+    thread_type: s.threadType ?? s.thread ?? null,
     finish: s.finish ?? null,
-    available_qty: s.availableQty ?? null,
+    remarks: s.remarks ?? null,
   };
 }
 
@@ -385,7 +391,13 @@ export function rowToTransaction(r: Row): InventoryTransaction {
     transactionType: r.transaction_type as InventoryTransaction["transactionType"],
     referenceType: (r.reference_type as string) ?? undefined,
     referenceId: (r.reference_id as string) ?? undefined,
-    notes: (r.notes as string) ?? undefined,
+    notes: (r.remarks as string) ?? (r.notes as string) ?? undefined,
+    remarks: (r.remarks as string) ?? (r.notes as string) ?? undefined,
+    brandName: (r.brand_name as string) ?? undefined,
+    goodsFrom: (r.supplier as string) ?? undefined,
+    supplier: (r.supplier as string) ?? undefined,
+    lotNo: (r.lot_no as string) ?? undefined,
+    threadType: (r.thread_type as string) ?? undefined,
     createdAt: r.created_at as string,
   };
 }
@@ -401,7 +413,12 @@ export function transactionToRow(t: InventoryTransaction, userId: string) {
     transaction_type: t.transactionType,
     reference_type: t.referenceType ?? null,
     reference_id: t.referenceId ?? null,
-    notes: t.notes ?? null,
+    notes: t.remarks ?? t.notes ?? null,
+    remarks: t.remarks ?? t.notes ?? null,
+    brand_name: t.brandName ?? null,
+    supplier: t.goodsFrom ?? t.supplier ?? null,
+    lot_no: t.lotNo ?? null,
+    thread_type: t.threadType ?? null,
   };
 }
 

@@ -86,10 +86,9 @@ export function productToRow(p: ProductMasterEntry, userId: string) {
     grade: p.grade ?? null,
     thread_type: p.threadType ?? null,
     thread_length: p.threadLength ?? null,
-    brand_name: p.brandName ?? null,
     // Legacy fields preserved for backward compat
     hsn: p.hsn ?? null,
-    gst_percent: p.gstPercent ?? null,
+    gst_percent: p.gstPercent != null ? p.gstPercent : 18,
     default_rate: p.defaultRate ?? null,
     lot_no: p.lotNo ?? null,
     goods_from: p.goodsFrom ?? null,
@@ -224,7 +223,6 @@ export function settingsToRow(s: Settings, userId: string) {
     logo_data_url: s.company.logoDataUrl ?? null,
     signature_data_url: s.company.signatureDataUrl ?? null,
     watermark_data_url: s.company.watermarkDataUrl ?? null,
-    head: s.company.head ?? null,
     bank_name: s.bank.bankName,
     account_number: s.bank.accountNumber,
     ifsc: s.bank.ifsc,
@@ -365,19 +363,8 @@ export function stockToRow(s: InventoryStock, userId: string) {
     user_id: userId,
     product_id: s.productId,
     warehouse_id: s.warehouseId,
-    location_id: s.locationId,
+    location_id: s.locationId || null,
     quantity: s.quantity,
-    lot_no: s.lotNo ?? null,
-    brand_name: s.brandName ?? null,
-    supplier: s.goodsFrom ?? s.supplier ?? null,
-    purchase_date: s.purchaseDate ?? null,
-    purchase_rate: s.purchaseRate ?? null,
-    purchase_ref: s.purchaseRef ?? null,
-    size: s.size ?? null,
-    grade: s.grade ?? null,
-    thread_type: s.threadType ?? s.thread ?? null,
-    finish: s.finish ?? null,
-    remarks: s.remarks ?? null,
   };
 }
 
@@ -408,17 +395,12 @@ export function transactionToRow(t: InventoryTransaction, userId: string) {
     user_id: userId,
     product_id: t.productId,
     warehouse_id: t.warehouseId,
-    location_id: t.locationId,
+    location_id: t.locationId || null,
     quantity: t.quantityChange,
     transaction_type: t.transactionType,
     reference_type: t.referenceType ?? null,
     reference_id: t.referenceId ?? null,
     notes: t.remarks ?? t.notes ?? null,
-    remarks: t.remarks ?? t.notes ?? null,
-    brand_name: t.brandName ?? null,
-    supplier: t.goodsFrom ?? t.supplier ?? null,
-    lot_no: t.lotNo ?? null,
-    thread_type: t.threadType ?? null,
   };
 }
 
@@ -606,7 +588,7 @@ export const cloud = {
     const userId = await currentUserId();
     const { error } = await supabase
       .from("inventory_stock")
-      .upsert(stockToRow(s, userId), { onConflict: "id" });
+      .upsert(stockToRow(s, userId), { onConflict: "user_id, product_id, warehouse_id, location_id" });
     if (error) throw error;
   },
 

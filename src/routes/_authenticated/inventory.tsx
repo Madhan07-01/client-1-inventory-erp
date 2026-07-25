@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useApp, newId } from "@/lib/store";
 import { cloud } from "@/lib/cloud";
@@ -107,7 +107,15 @@ function InventoryPage() {
 
   function handleAdjustSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!adjustData.productId || !adjustData.warehouseId || !adjustData.locationId || !adjustData.qty) {
+
+    console.log("Adjustment Data:", adjustData);
+
+    const selectedWh = warehouses.find((w) => w.id === adjustData.warehouseId);
+    const availableLocations = selectedWh?.locations || [];
+    const hasLocations = availableLocations.length > 0;
+    const isLocationValid = hasLocations ? Boolean(adjustData.locationId) : true;
+
+    if (!adjustData.productId || !adjustData.warehouseId || !isLocationValid || !adjustData.qty) {
       toast.error("Please fill Product, Warehouse, Location, and Quantity");
       return;
     }
@@ -515,8 +523,8 @@ function InventoryPage() {
                       const isExpanded = expandedRows.has(row.id || String(i));
                       const hasDetails = row.supplier !== "-" || row.finish !== "-" || row.thread !== "-" || row.purchaseRate;
                       return (
-                        <>
-                          <tr key={row.id || i} className="hover:bg-muted/20">
+                        <Fragment key={row.id || String(i)}>
+                          <tr className="hover:bg-muted/20">
                             <td className="px-3 py-2.5 sm:px-4 sm:py-3 text-center">
                               {hasDetails && (
                                 <button onClick={() => toggleRow(row.id || String(i))} className="text-muted-foreground hover:text-foreground">
@@ -587,7 +595,7 @@ function InventoryPage() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </Fragment>
                       );
                     })
                   )}

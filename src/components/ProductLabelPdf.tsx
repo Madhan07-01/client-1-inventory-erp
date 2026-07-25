@@ -103,18 +103,18 @@ function buildLabelHtml(product: ProductMasterEntry, _company?: Settings["compan
 
           .item-type-header {
             text-align: center;
-            font-size: 22px;
+            font-size: 30px;
             font-weight: 800;
             letter-spacing: 0.5px;
             margin-top: 0;
-            margin-bottom: ${productSize ? "4px" : "20px"};
+            margin-bottom: ${productSize ? "8px" : "20px"};
             color: #000;
             text-transform: uppercase;
           }
 
           .size-header {
             text-align: center;
-            font-size: 18px;
+            font-size: 22px;
             font-weight: 700;
             letter-spacing: 0.3px;
             margin-bottom: 16px;

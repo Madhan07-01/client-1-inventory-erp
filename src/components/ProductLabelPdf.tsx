@@ -16,7 +16,7 @@ function buildLabelHtml(
   // Store only the Warehouse Ledger ID in the QR
   const qrPayload = batch.id || "";
 
-  const qrSvgString = ReactDOMServer.renderToString(
+  const rawQrSvg = ReactDOMServer.renderToString(
     <QRCodeSVG
       value={qrPayload}
       size={250}
@@ -24,6 +24,9 @@ function buildLabelHtml(
       includeMargin={false}
     />,
   );
+
+  const qrBase64 = btoa(unescape(encodeURIComponent(rawQrSvg)));
+  const qrImgSrc = `data:image/svg+xml;base64,${qrBase64}`;
 
   const itemTypeHeader = (product.itemType || "BOLT NUT WASHER SET").toUpperCase();
   const productSize = (batch.size || "").trim();
@@ -123,7 +126,7 @@ function buildLabelHtml(
             flex-grow: 0;
           }
 
-          .qr-wrapper svg {
+          .qr-wrapper img {
             display: block;
             margin: 0 auto;
             width: 250px !important;
@@ -131,6 +134,7 @@ function buildLabelHtml(
             max-width: 250px;
             max-height: 250px;
             flex: none;
+            object-fit: contain;
           }
 
           .divider {
@@ -174,7 +178,7 @@ function buildLabelHtml(
           ${productSize ? `<div class="size-header">Size : ${productSize}</div>` : ""}
           
           <div class="qr-wrapper">
-            ${qrSvgString}
+            <img src="${qrImgSrc}" alt="QR Code" width="250" height="250" />
           </div>
 
           <div class="divider"></div>

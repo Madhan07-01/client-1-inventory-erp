@@ -43,6 +43,9 @@ type AdjustData = {
   thread: string;
   threadType?: string;
   finish: string;
+  customField1?: string;
+  customField2?: string;
+  customField3?: string;
 };
 
 function emptyAdjust(): AdjustData {
@@ -66,6 +69,9 @@ function emptyAdjust(): AdjustData {
     thread: "",
     threadType: "",
     finish: "",
+    customField1: "",
+    customField2: "",
+    customField3: "",
   };
 }
 
@@ -152,6 +158,9 @@ function InventoryPage() {
           ...((adjustData.remarks || adjustData.notes) && {
             remarks: adjustData.remarks || adjustData.notes,
           }),
+          ...(adjustData.customField1 && { customField1: adjustData.customField1 }),
+          ...(adjustData.customField2 && { customField2: adjustData.customField2 }),
+          ...(adjustData.customField3 && { customField3: adjustData.customField3 }),
         }
       : {
           id: newId(),
@@ -173,6 +182,9 @@ function InventoryPage() {
           threadType: adjustData.threadType || adjustData.thread || undefined,
           finish: adjustData.finish || undefined,
           remarks: adjustData.remarks || adjustData.notes || undefined,
+          customField1: adjustData.customField1 || undefined,
+          customField2: adjustData.customField2 || undefined,
+          customField3: adjustData.customField3 || undefined,
         };
 
     const txn: InventoryTransaction = {
@@ -472,6 +484,18 @@ function InventoryPage() {
                       <div>
                         <Label>Finish</Label>
                         <Input className="mt-1" placeholder="e.g. HDG, Zinc, Black" value={adjustData.finish} onChange={(e) => patch({ finish: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Custom Spec 1</Label>
+                        <Input className="mt-1" placeholder="Optional detail..." value={adjustData.customField1 || ""} onChange={(e) => patch({ customField1: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Custom Spec 2</Label>
+                        <Input className="mt-1" placeholder="Optional detail..." value={adjustData.customField2 || ""} onChange={(e) => patch({ customField2: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Custom Spec 3</Label>
+                        <Input className="mt-1" placeholder="Optional detail..." value={adjustData.customField3 || ""} onChange={(e) => patch({ customField3: e.target.value })} />
                       </div>
                     </div>
                   </div>

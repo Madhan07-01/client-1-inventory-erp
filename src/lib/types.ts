@@ -222,6 +222,9 @@ export interface InventoryStock {
   threadType?: string;
   finish?: string;
   remarks?: string;
+  customField1?: string;
+  customField2?: string;
+  customField3?: string;
   /** Available-for-sale qty (may differ from quantity if some are reserved) */
   availableQty?: number;
 }

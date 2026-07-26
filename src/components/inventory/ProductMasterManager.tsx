@@ -50,7 +50,7 @@ function emptyProduct(): EditableProduct {
   };
 }
 
-export function ProductMasterManager() {
+export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: string) => void }) {
   const products = useApp((s) => s.settings.productMaster);
   const inventoryStock = useApp((s) => s.inventoryStock);
   const company = useApp((s) => s.settings.company);
@@ -238,10 +238,10 @@ export function ProductMasterManager() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => printProductLabel(p, company)}
-                          title="Print Label"
+                          onClick={() => onViewStock?.(p.sku || "")}
+                          title="View Stock in Ledger"
                         >
-                          <Printer className="h-4 w-4" />
+                          <Search className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
                           <Pencil className="h-4 w-4" />

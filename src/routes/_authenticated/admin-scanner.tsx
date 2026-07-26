@@ -45,7 +45,7 @@ function AdminScannerPage() {
   const [scannedBatch, setScannedBatch] = useState<InventoryStock | null>(null);
   
   const upsertInventoryStock = useApp((s) => s.upsertInventoryStock);
-  const warehouses = useApp((s) => s.settings.warehouses);
+  const warehouses = useApp((s) => s.warehouses);
 
   // CRUD Modals
   const [isStockAdjustmentOpen, setIsStockAdjustmentOpen] = useState(false);

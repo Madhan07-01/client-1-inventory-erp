@@ -656,7 +656,7 @@ function InventoryPage() {
 
           <TabsContent value="products">
             <ProductMasterManager 
-              onViewStock={(sku) => {
+              onViewStock={(sku: string) => {
                 setActiveTab("ledger");
                 setSearchQuery(sku);
               }}

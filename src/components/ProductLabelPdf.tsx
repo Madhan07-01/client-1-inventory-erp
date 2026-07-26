@@ -70,7 +70,6 @@ function buildLabelHtml(
             .print-label {
               width: 90% !important;
               max-width: none !important;
-              min-height: 90vh !important;
               margin: auto !important;
               padding: 24px !important;
               page-break-after: avoid !important;
@@ -82,16 +81,13 @@ function buildLabelHtml(
           .print-label {
             width: 90%;
             max-width: none;
-            min-height: 90vh;
             margin: 20px auto;
             padding: 28px;
             border: 2.5px solid #000;
             border-radius: 8px;
             background: #fff;
             box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
+            display: block;
             page-break-after: avoid;
             page-break-before: avoid;
             break-inside: avoid;
@@ -122,13 +118,19 @@ function buildLabelHtml(
             justify-content: center;
             align-items: center;
             margin: 12px 0 24px 0;
+            height: 250px;
+            flex-shrink: 0;
+            flex-grow: 0;
           }
 
           .qr-wrapper svg {
             display: block;
             margin: 0 auto;
-            width: 250px;
-            height: 250px;
+            width: 250px !important;
+            height: 250px !important;
+            max-width: 250px;
+            max-height: 250px;
+            flex: none;
           }
 
           .divider {

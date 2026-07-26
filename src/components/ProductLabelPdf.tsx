@@ -26,7 +26,7 @@ function buildLabelHtml(
   );
 
   const itemTypeHeader = (product.itemType || "BOLT NUT WASHER SET").toUpperCase();
-  const productSize = (batch.size || product.size || "").trim();
+  const productSize = (batch.size || "").trim();
 
   return `
     <!DOCTYPE html>

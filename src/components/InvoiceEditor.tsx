@@ -3,14 +3,13 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, FileDown, Save, Printer, FileText, Check, Layers } from "lucide-react";
+import { Plus, Trash2, FileDown, Save, Printer, FileText, Check, Layers, AlertTriangle } from "lucide-react";
 import { useApp, newId } from "@/lib/store";
 import type { Invoice, InvoiceItem, InventoryStock, SupplyType } from "@/lib/types";
 import { cloud } from "@/lib/cloud";
 import { computeTotals, formatINR, lineTotal, numberToIndianWords } from "@/lib/calc";
 import { downloadInvoicePdf, printInvoicePdf } from "@/components/InvoicePdf";
 import { toast } from "sonner";
-import { useScanner } from "@/hooks/useScanner";
 import { CameraScannerDialog } from "@/components/CameraScannerDialog";
 import {
   Dialog,
@@ -191,19 +190,19 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
 
   // Apply a specific inventory batch to an invoice item
   function applyBatchToItem(itemId: string, batch: InventoryStock) {
+    const wh = warehouses.find(w => w.id === batch.warehouseId);
     updateItem(itemId, {
       stockBatchId: batch.id,
+      productId: batch.productId,
+      warehouseId: batch.warehouseId,
+      warehouseName: wh?.name,
+      lotNumber: batch.lotNo,
+      allocationTimestamp: Date.now()
     });
     setBatchPickerItemId(null);
     setBatchPickerProductId(null);
     toast.success("Batch selected");
   }
-
-  useScanner({
-    onScan: (barcode) => {
-      handleCameraScan(barcode);
-    },
-  });
 
   // Handle successful camera scan
   const handleCameraScan = (barcode: string) => {
@@ -250,6 +249,9 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
           };
         } else {
           toast.success(`Added ${match.description} to invoice`);
+          const allocatedBatch = inventoryStock.find(s => s.id === allocatedBatchId);
+          const wh = warehouses.find(w => w.id === allocatedBatch?.warehouseId);
+          
           const newItem: InvoiceItem = {
             ...blankItem(),
             description: match.description,
@@ -257,7 +259,12 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
             price: match.defaultRate ?? null,
             gstPercent: match.gstPercent ?? 0,
             quantity: 1,
-            stockBatchId: allocatedBatchId
+            stockBatchId: allocatedBatchId,
+            productId: match.id,
+            warehouseId: allocatedBatch?.warehouseId,
+            warehouseName: wh?.name,
+            lotNumber: allocatedBatch?.lotNo,
+            allocationTimestamp: allocatedBatch ? Date.now() : undefined,
           };
           
           const lastItem = s.items[s.items.length - 1];
@@ -276,6 +283,56 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       toast.error(`No product/batch found for barcode: ${barcode}`);
     }
   };
+
+  // Auto-detect dispatch warehouse based on item stock allocations
+  useEffect(() => {
+    if (inv.manualDispatchOverride) return;
+
+    const allocatedWarehouses = new Set<string>();
+    for (const it of inv.items) {
+      if (it.warehouseId) {
+        allocatedWarehouses.add(it.warehouseId);
+      }
+    }
+
+    if (allocatedWarehouses.size > 1) {
+      // Multi-warehouse dispatch detected
+      if (!inv.multiWarehouseDispatch || inv.dispatchWarehouseId !== "") {
+        setInv(prev => ({
+          ...prev,
+          multiWarehouseDispatch: true,
+          dispatchWarehouseId: "",
+          dispatchLocationId: ""
+        }));
+      }
+    } else if (allocatedWarehouses.size === 1) {
+      // Single warehouse dispatch
+      const singleWhId = Array.from(allocatedWarehouses)[0];
+      const batchId = inv.items.find(i => i.warehouseId === singleWhId)?.stockBatchId;
+      const singleLocId = inventoryStock.find(s => s.id === batchId)?.locationId || "";
+      
+      if (inv.multiWarehouseDispatch || inv.dispatchWarehouseId !== singleWhId || inv.dispatchLocationId !== singleLocId) {
+        setInv(prev => ({
+          ...prev,
+          multiWarehouseDispatch: false,
+          dispatchWarehouseId: singleWhId,
+          dispatchLocationId: singleLocId
+        }));
+      }
+    } else {
+      // No warehouses allocated
+      if (inv.multiWarehouseDispatch) {
+        setInv(prev => ({ ...prev, multiWarehouseDispatch: false }));
+      }
+    }
+  }, [
+    inv.items, 
+    inv.manualDispatchOverride, 
+    inv.multiWarehouseDispatch, 
+    inv.dispatchWarehouseId, 
+    inv.dispatchLocationId, 
+    inventoryStock
+  ]);
 
   // Auto-detect supply type from customer GSTIN state code vs company GSTIN state code.
   useEffect(() => {
@@ -347,12 +404,24 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
        return;
     }
 
-    // Prefill description only — HSN is typed manually per invoice item
     const autoAllocatedBatchId = getOldestBatchIdForProduct(match.id);
+    const batch = inventoryStock.find(s => s.id === autoAllocatedBatchId);
+    const wh = warehouses.find(w => w.id === batch?.warehouseId);
+    
     updateItem(itemId, { 
       description: match.description,
-      stockBatchId: autoAllocatedBatchId 
+      stockBatchId: autoAllocatedBatchId,
+      productId: match.id,
+      warehouseId: batch?.warehouseId,
+      warehouseName: wh?.name,
+      lotNumber: batch?.lotNo,
+      allocationTimestamp: batch ? Date.now() : undefined,
+      hsn: match.hsn ?? "",
+      price: match.defaultRate ?? null,
+      gstPercent: match.gstPercent ?? 0
     });
+
+    // Auto-selection of dispatch warehouse is now handled by the multi-warehouse useEffect watcher
   }
   function ensureSaved(extra?: Partial<Invoice>): Invoice {
     let final = inv;
@@ -750,46 +819,82 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Section title="Dispatch From" tint="var(--surface-header)">
           <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <div>
-                <select
-                  className="w-full text-sm border rounded-md px-2 py-1.5 bg-white"
-                  value={inv.dispatchWarehouseId ?? ""}
-                  onChange={(e) => {
-                    const whId = e.target.value;
-                    const wh = warehouses.find((w) => w.id === whId);
-                    patch({
-                      dispatchWarehouseId: whId,
-                      dispatchLocationId: wh?.locations?.[0]?.id ?? "",
-                    });
-                  }}
-                >
-                  <option value="">— Select Warehouse —</option>
-                  {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.code})
-                    </option>
-                  ))}
-                </select>
+            {!inv.manualDispatchOverride && inv.multiWarehouseDispatch ? (
+              <div className="flex flex-col gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                <div className="flex items-center text-amber-800 gap-2 font-medium text-sm">
+                  <AlertTriangle className="h-4 w-4" />
+                  Multi-Warehouse Dispatch
+                </div>
+                <p className="text-xs text-amber-700">
+                  Products in this invoice will be dispatched from multiple warehouse locations based on their stock allocations.
+                </p>
+                <div className="mt-1">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-7 text-xs"
+                    onClick={() => patch({ manualDispatchOverride: true })}
+                  >
+                    Override Primary Warehouse
+                  </Button>
+                </div>
               </div>
-              <div>
-                <select
-                  className="w-full text-sm border rounded-md px-2 py-1.5 bg-white"
-                  value={inv.dispatchLocationId ?? ""}
-                  onChange={(e) => patch({ dispatchLocationId: e.target.value })}
-                  disabled={!inv.dispatchWarehouseId}
-                >
-                  <option value="">— Select Location —</option>
-                  {warehouses
-                    .find((w) => w.id === inv.dispatchWarehouseId)
-                    ?.locations?.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.name} ({loc.code})
+            ) : (
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <select
+                    className="w-full text-sm border rounded-md px-2 py-1.5 bg-white"
+                    value={inv.dispatchWarehouseId ?? ""}
+                    onChange={(e) => {
+                      const whId = e.target.value;
+                      const wh = warehouses.find((w) => w.id === whId);
+                      patch({
+                        dispatchWarehouseId: whId,
+                        dispatchLocationId: wh?.locations?.[0]?.id ?? "",
+                        manualDispatchOverride: true
+                      });
+                    }}
+                  >
+                    <option value="">— Select Warehouse —</option>
+                    {warehouses.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} ({w.code})
                       </option>
                     ))}
-                </select>
+                  </select>
+                </div>
+                <div>
+                  <select
+                    className="w-full text-sm border rounded-md px-2 py-1.5 bg-white"
+                    value={inv.dispatchLocationId ?? ""}
+                    onChange={(e) => patch({ dispatchLocationId: e.target.value, manualDispatchOverride: true })}
+                    disabled={!inv.dispatchWarehouseId}
+                  >
+                    <option value="">— Select Location —</option>
+                    {warehouses
+                      .find((w) => w.id === inv.dispatchWarehouseId)
+                      ?.locations?.map((loc) => (
+                        <option key={loc.id} value={loc.id}>
+                          {loc.name} ({loc.code})
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
-            </div>
+            )}
+            
+            {inv.manualDispatchOverride && inv.multiWarehouseDispatch && (
+               <div className="text-[10px] text-amber-600 flex items-center justify-between">
+                 <span>Manual override active.</span>
+                 <button 
+                   className="underline text-blue-600 hover:text-blue-800"
+                   onClick={() => patch({ manualDispatchOverride: false })}
+                 >
+                   Clear Override
+                 </button>
+               </div>
+            )}
+
             <textarea
               placeholder="Address"
               className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
@@ -978,15 +1083,27 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
             </tbody>
           </table>
           <datalist id="product-master-list">
-            {activeProducts.map((p) => {
-              const avail = getAvailableStock(p.description);
-              const outOfStock = avail !== null && avail <= 0;
-              return (
+            {activeProducts
+              .map((p) => {
+                const avail = getAvailableStock(p.description) ?? 0;
+                const latestDate = inventoryStock
+                  .filter(s => s.productId === p.id && s.quantity > 0)
+                  .reduce((max, b) => (b.purchaseDate || "") > max ? (b.purchaseDate || "") : max, "");
+                return { p, avail, latestDate };
+              })
+              .sort((a, b) => {
+                if (a.avail > 0 && b.avail <= 0) return -1;
+                if (a.avail <= 0 && b.avail > 0) return 1;
+                if (a.avail > 0 && b.avail > 0) {
+                  return b.latestDate.localeCompare(a.latestDate);
+                }
+                return a.p.description.localeCompare(b.p.description);
+              })
+              .map(({ p, avail }) => (
                 <option key={p.id} value={p.description}>
-                  {outOfStock ? "[OUT OF STOCK] " : ""}{p.description}
+                  {avail > 0 ? `(Avail: ${avail}) ${p.description}` : p.description}
                 </option>
-              );
-            })}
+              ))}
           </datalist>
           <datalist id="hsn-history-list">
             {hsnHistory.map((h) => (

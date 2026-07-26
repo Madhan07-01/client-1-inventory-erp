@@ -474,9 +474,6 @@ function LotReportBody({
               <tr>
                 <th className="px-4 py-3 font-medium">SKU / Code</th>
                 <th className="px-4 py-3 font-medium">Description</th>
-                <th className="px-4 py-3 font-medium">Size</th>
-                <th className="px-4 py-3 font-medium">Grade</th>
-                <th className="px-4 py-3 font-medium">Finish</th>
                 <th className="px-4 py-3 font-medium text-right">Current Stock</th>
               </tr>
             </thead>
@@ -494,9 +491,6 @@ function LotReportBody({
                     <tr key={p.id} className="border-t hover:bg-muted/10 transition-colors">
                       <td className="px-4 py-3 font-mono text-xs">{p.sku || "—"}</td>
                       <td className="px-4 py-3 font-medium">{p.description}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{p.size || "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{p.grade || "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{p.finish || "—"}</td>
                       <td className={`px-4 py-3 text-right font-semibold ${s > 0 ? "text-green-600" : "text-red-500"}`}>
                         {s}
                       </td>

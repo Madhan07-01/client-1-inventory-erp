@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useApp } from "@/lib/store";
 import { AppShell } from "@/components/AppShell";
-import { useScanner } from "@/hooks/useScanner";
 import type { ProductMasterEntry, InventoryTransaction, InventoryStock } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +24,7 @@ export const Route = createFileRoute("/_authenticated/admin-scanner")({
   component: AdminScannerPage,
 });
 
-type ScannerMode = "CAMERA" | "EXTERNAL" | "MANUAL";
+type ScannerMode = "CAMERA" | "MANUAL";
 
 type EditableProduct = {
   id: string;
@@ -131,15 +130,6 @@ function AdminScannerPage() {
       toast.error(`No record found for barcode: ${barcode}`);
     }
   }, [products, inventoryStock]);
-
-  useScanner({
-    onScan: (barcode) => {
-      if (scannerMode === "EXTERNAL" && !scannedProduct && !editingProduct && !isStockAdjustmentOpen) {
-        processScanResult(barcode);
-      }
-    },
-    ignoreWhenFocused: true
-  });
 
   const startCameraScanner = async (cameraId?: string) => {
     setCameraError(null);
@@ -342,13 +332,6 @@ function AdminScannerPage() {
             <Camera className="w-4 h-4 mr-2" /> Camera
           </Button>
           <Button 
-            variant={scannerMode === "EXTERNAL" ? "default" : "ghost"} 
-            onClick={() => { setScannerMode("EXTERNAL"); setScannedProduct(null); }}
-            className="flex-1 text-xs md:text-sm"
-          >
-            <ScanBarcode className="w-4 h-4 mr-2" /> External
-          </Button>
-          <Button 
             variant={scannerMode === "MANUAL" ? "default" : "ghost"} 
             onClick={() => { setScannerMode("MANUAL"); setScannedProduct(null); }}
             className="flex-1 text-xs md:text-sm"
@@ -399,18 +382,6 @@ function AdminScannerPage() {
                     Position the product QR code inside the frame. Searching for QR code...
                   </div>
                 )}
-              </div>
-            )}
-
-            {scannerMode === "EXTERNAL" && (
-              <div className="border-2 border-dashed rounded-xl p-16 flex flex-col items-center justify-center text-center bg-muted/10">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-                  <ScanBarcode className="w-10 h-10 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">Ready for external scanner input.</h3>
-                <p className="text-muted-foreground max-w-sm">
-                  Connect your USB or Bluetooth scanner, then scan a product QR code. The details will appear automatically.
-                </p>
               </div>
             )}
 

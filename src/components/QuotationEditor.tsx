@@ -35,7 +35,6 @@ import {
   effectiveStatus,
 } from "@/lib/quotation-actions";
 import { toast } from "sonner";
-import { useScanner } from "@/hooks/useScanner";
 import { CameraScannerDialog } from "@/components/CameraScannerDialog";
 
 function blankItem(): InvoiceItem {
@@ -134,6 +133,7 @@ export function QuotationEditor({
   const navigate = useNavigate();
   const settings = useApp((s) => s.settings);
   const customers = useApp((s) => s.customers);
+  const inventoryStock = useApp((s) => s.inventoryStock);
   const saveQuotation = useApp((s) => s.saveQuotation);
   const consumeQuotationNumber = useApp((s) => s.consumeQuotationNumber);
   const addCustomer = useApp((s) => s.addCustomer);
@@ -149,12 +149,6 @@ export function QuotationEditor({
 
   const totals = useMemo(() => computeTotals(q as unknown as Invoice), [q]);
   const activeProducts = settings.productMaster.filter((p) => p.active);
-
-  useScanner({
-    onScan: (barcode) => {
-      handleCameraScan(barcode);
-    },
-  });
 
   const handleCameraScan = (barcode: string) => {
     if (isLocked) {
@@ -784,9 +778,27 @@ export function QuotationEditor({
             </tbody>
           </table>
           <datalist id="quotation-product-list">
-            {activeProducts.map((p) => (
-              <option key={p.id} value={p.description} />
-            ))}
+            {activeProducts
+              .map((p) => {
+                const avail = inventoryStock.filter(s => s.productId === p.id).reduce((acc, s) => acc + s.quantity, 0);
+                const latestDate = inventoryStock
+                  .filter(s => s.productId === p.id && s.quantity > 0)
+                  .reduce((max, b) => (b.purchaseDate || "") > max ? (b.purchaseDate || "") : max, "");
+                return { p, avail, latestDate };
+              })
+              .sort((a, b) => {
+                if (a.avail > 0 && b.avail <= 0) return -1;
+                if (a.avail <= 0 && b.avail > 0) return 1;
+                if (a.avail > 0 && b.avail > 0) {
+                  return b.latestDate.localeCompare(a.latestDate);
+                }
+                return a.p.description.localeCompare(b.p.description);
+              })
+              .map(({ p, avail }) => (
+                <option key={p.id} value={p.description}>
+                  {avail > 0 ? `(Avail: ${avail}) ${p.description}` : p.description}
+                </option>
+              ))}
           </datalist>
         </div>
       </div>

@@ -16,7 +16,6 @@ import { Plus, Pencil, Trash2, Search, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { cloud } from "@/lib/cloud";
 import { printProductLabel } from "@/components/ProductLabelPdf";
-import { useScanner } from "@/hooks/useScanner";
 
 type EditableProduct = {
   id: string;
@@ -26,11 +25,6 @@ type EditableProduct = {
   brandName: string;
   active: boolean;
   itemType: string;
-  size: string;
-  finish: string;
-  grade: string;
-  threadType: string;
-  threadLength: string;
 };
 
 function emptyProduct(): EditableProduct {
@@ -42,11 +36,6 @@ function emptyProduct(): EditableProduct {
     brandName: "",
     active: true,
     itemType: "Bolt Nut",
-    size: "",
-    finish: "",
-    grade: "",
-    threadType: "",
-    threadLength: "",
   };
 }
 
@@ -59,18 +48,11 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<EditableProduct | null>(null);
 
-  useScanner({
-    onScan: (barcode) => {
-      setQuery(barcode);
-      toast.info(`Searched for barcode: ${barcode}`);
-    },
-  });
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return products;
     return products.filter((p) =>
-      [p.description, p.sku, p.itemType, p.grade, p.finish, p.size, p.hsn, p.brandName].join(" ").toLowerCase().includes(q),
+      [p.description, p.sku, p.itemType, p.hsn, p.brandName].join(" ").toLowerCase().includes(q),
     );
   }, [products, query]);
 
@@ -83,11 +65,6 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
       brandName: p.brandName ?? "",
       active: p.active ?? true,
       itemType: p.itemType ?? "",
-      size: p.size ?? "",
-      finish: p.finish ?? "",
-      grade: p.grade ?? "",
-      threadType: p.threadType ?? "",
-      threadLength: p.threadLength ?? "",
     });
   }
 
@@ -113,11 +90,6 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
       qrValue: sku,
       active: editing.active,
       itemType: itemType,
-      size: editing.size.trim() || undefined,
-      finish: editing.finish.trim() || undefined,
-      grade: editing.grade.trim() || undefined,
-      threadType: editing.threadType || undefined,
-      threadLength: editing.threadLength.trim() || undefined,
     });
     toast.success(editing.id ? "Product updated" : "Product added");
     setEditing(null);
@@ -311,59 +283,6 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
                     value={editing.hsn}
                     onChange={(e) => setEditing({ ...editing, hsn: e.target.value })}
                     placeholder="e.g. 7318"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Size</Label>
-                  <Input
-                    value={editing.size}
-                    onChange={(e) => setEditing({ ...editing, size: e.target.value })}
-                    placeholder="e.g. M16 x 35"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Finish</Label>
-                  <Input
-                    value={editing.finish}
-                    onChange={(e) => setEditing({ ...editing, finish: e.target.value })}
-                    placeholder="e.g. Zinc"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Grade</Label>
-                  <Input
-                    value={editing.grade}
-                    onChange={(e) => setEditing({ ...editing, grade: e.target.value })}
-                    placeholder="e.g. 8.8"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Thread Type</Label>
-                  <select
-                    value={editing.threadType}
-                    onChange={(e) => setEditing({ ...editing, threadType: e.target.value })}
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <option value="">Select Thread Type</option>
-                    <option value="Full Thread">Full Thread</option>
-                    <option value="Half Thread">Half Thread</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Thread Length (Optional)</Label>
-                  <Input
-                    value={editing.threadLength}
-                    onChange={(e) => setEditing({ ...editing, threadLength: e.target.value })}
-                    placeholder="e.g. 25 mm"
                   />
                 </div>
               </div>

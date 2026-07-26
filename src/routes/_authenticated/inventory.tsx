@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, ScanBarcode, ArrowDownUp, Download, ChevronDown, ChevronRight, Trash2, Printer } from "lucide-react";
 import { toast } from "sonner";
-import { useScanner } from "@/hooks/useScanner";
 import { AppShell } from "@/components/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductMasterManager } from "@/components/inventory/ProductMasterManager";
@@ -88,21 +87,6 @@ function InventoryPage() {
   const [adjustData, setAdjustData] = useState<AdjustData>(emptyAdjust);
 
   const activeProducts = settings.productMaster.filter((p) => p.active);
-
-  useScanner({
-    onScan: (barcode) => {
-      if (!isAdjusting) return;
-      const match = activeProducts.find(
-        (p) => p.sku === barcode || p.barcodeValue === barcode || p.qrValue === barcode,
-      );
-      if (match) {
-        setAdjustData((s) => ({ ...s, productId: match.id }));
-        toast.success(`Scanned: ${match.description}`);
-      } else {
-        toast.error(`Product not found for barcode: ${barcode}`);
-      }
-    },
-  });
 
   function patch(p: Partial<AdjustData>) {
     setAdjustData((s) => ({ ...s, ...p }));
@@ -583,6 +567,17 @@ function InventoryPage() {
                                       warehouseId: row.warehouseId,
                                       locationId: row.locationId,
                                       lotNo: row.lotNo !== "-" ? row.lotNo : "",
+                                      size: row.size !== "-" ? row.size : "",
+                                      grade: row.grade !== "-" ? row.grade : "",
+                                      finish: row.finish !== "-" ? row.finish : "",
+                                      brandName: row.brandName !== "-" ? row.brandName : "",
+                                      supplier: row.supplier !== "-" ? row.supplier : "",
+                                      goodsFrom: row.supplier !== "-" ? row.supplier : "",
+                                      purchaseDate: row.purchaseDate !== "-" ? row.purchaseDate : "",
+                                      purchaseRate: row.purchaseRate ? String(row.purchaseRate) : "",
+                                      purchaseRef: row.purchaseRef !== "-" ? row.purchaseRef : "",
+                                      thread: row.thread !== "-" ? row.thread : "",
+                                      threadType: row.thread !== "-" ? row.thread : "",
                                     });
                                     setIsAdjusting(true);
                                     window.scrollTo({ top: 0, behavior: "smooth" });

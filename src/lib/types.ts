@@ -63,11 +63,6 @@ export interface ProductMasterEntry {
   qrValue?: string;
   // Hardware specifications
   itemType?: string;
-  size?: string;
-  finish?: string;
-  grade?: string;
-  threadType?: string;
-  threadLength?: string;
   brandName?: string;
   // Legacy fields — kept for backward compatibility with existing stored data.
   hsn?: string;
@@ -75,7 +70,6 @@ export interface ProductMasterEntry {
   defaultRate?: number;
   lotNo?: string;
   goodsFrom?: string;
-  tread?: string;
 }
 
 export type SupplyType = "WITHIN_STATE" | "OTHER_STATE";
@@ -114,6 +108,12 @@ export interface InvoiceItem {
   gstPercent: number | null;
   /** Reference to the inventory batch (InventoryStock.id) used when dispatching */
   stockBatchId?: string;
+  /** Permanent snapshot fields for traceability even if the inventory stock is deleted */
+  productId?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  lotNumber?: string;
+  allocationTimestamp?: number;
 }
 
 export interface Invoice {
@@ -138,6 +138,8 @@ export interface Invoice {
   dispatchFrom?: InvoiceDispatchFrom;
   dispatchWarehouseId?: string;
   dispatchLocationId?: string;
+  multiWarehouseDispatch?: boolean;
+  manualDispatchOverride?: boolean;
   shipTo?: InvoiceShipTo;
   supplyType?: SupplyType;
   supplyTypeManual?: boolean;

@@ -197,11 +197,6 @@ export const useApp = create<AppState>()((set, get) => ({
           qrValue: entry.qrValue || entry.sku || "",
           active: entry.active ?? true,
           itemType: entry.itemType,
-          size: entry.size,
-          finish: entry.finish,
-          grade: entry.grade,
-          threadType: entry.threadType,
-          threadLength: entry.threadLength,
         };
         bg(cloud.upsertProduct(saved), "Save product");
         return {
@@ -219,11 +214,6 @@ export const useApp = create<AppState>()((set, get) => ({
         barcodeValue: entry.barcodeValue !== undefined ? entry.barcodeValue : list[idx].barcodeValue,
         qrValue: entry.qrValue !== undefined ? entry.qrValue : list[idx].qrValue,
         itemType: entry.itemType !== undefined ? entry.itemType : list[idx].itemType,
-        size: entry.size !== undefined ? entry.size : list[idx].size,
-        finish: entry.finish !== undefined ? entry.finish : list[idx].finish,
-        grade: entry.grade !== undefined ? entry.grade : list[idx].grade,
-        threadType: entry.threadType !== undefined ? entry.threadType : list[idx].threadType,
-        threadLength: entry.threadLength !== undefined ? entry.threadLength : list[idx].threadLength,
       };
       bg(cloud.upsertProduct(updated), "Update product");
       const next = [...list];

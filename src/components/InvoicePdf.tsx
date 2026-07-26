@@ -321,8 +321,7 @@ function buildInvoicePrintHtml(invoice: Invoice): string {
         </div>
         ${shipToHtml}
         </div>
-        <div class="box invoice-meta">
-          <div class="label">INVOICE</div>
+        <div class="box invoice-meta" style="padding: 0; overflow: hidden;">
           ${infoRowsHtml}
         </div>
       </div>

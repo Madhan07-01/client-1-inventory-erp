@@ -958,12 +958,12 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
             <thead className="bg-[var(--surface-summary)] text-left">
               <tr>
                 <th className="px-3 py-2 font-medium w-10">#</th>
-                <th className="px-3 py-2 font-medium">Description</th>
-                <th className="px-3 py-2 font-medium w-24">HSN CODE</th>
-                <th className="px-3 py-2 font-medium w-28 text-right">KGS</th>
-                <th className="px-3 py-2 font-medium w-28 text-right">Price</th>
-                <th className="px-3 py-2 font-medium w-28 text-right">Amount</th>
-                <th className="px-3 py-2 w-20"></th>
+                <th className="px-3 py-2 font-medium min-w-[200px]">Description</th>
+                <th className="px-3 py-2 font-medium min-w-[120px]">HSN CODE</th>
+                <th className="px-3 py-2 font-medium min-w-[100px] text-right">KGS</th>
+                <th className="px-3 py-2 font-medium min-w-[100px] text-right">Price</th>
+                <th className="px-3 py-2 font-medium min-w-[120px] text-right">Amount</th>
+                <th className="px-3 py-2 w-16"></th>
               </tr>
             </thead>
             <tbody>

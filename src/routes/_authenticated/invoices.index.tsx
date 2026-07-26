@@ -8,6 +8,10 @@ import { Plus, Search, Trash2, Pencil, Printer, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { printInvoicePdf } from "@/components/InvoicePdf";
 import { cloud } from "@/lib/cloud";
+import { isToday, startOfMonth, parseISO, isAfter } from "date-fns";
+import { TrendChart } from "@/components/analytics/TrendChart";
+import { KpiCard } from "@/components/analytics/KpiCard";
+import { IndianRupee, FileText, Receipt, TrendingUp, AlertCircle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -99,6 +103,51 @@ function InvoicesList() {
     toast.success("Invoice cancelled");
   }
 
+  // Analytics
+  const analytics = useMemo(() => {
+    const today = new Date();
+    const monthStart = startOfMonth(today);
+
+    let thisMonthRevenue = 0;
+    let thisMonthGst = 0;
+    let thisMonthCount = 0;
+    let todaysCount = 0;
+    let highestInvoice = 0;
+    let totalRevenue = 0;
+    // Assuming no payment tracking yet, pending is N/A or simplified.
+
+    invoices.forEach(inv => {
+      if (inv.lifecycle === "CANCELLED" || inv.isDraft) return;
+      const t = computeTotals(inv);
+      const invDate = parseISO(inv.createdAt);
+      
+      totalRevenue += t.grandTotal;
+      highestInvoice = Math.max(highestInvoice, t.grandTotal);
+
+      if (isAfter(invDate, monthStart)) {
+        thisMonthRevenue += t.grandTotal;
+        thisMonthGst += t.gstTotal;
+        thisMonthCount++;
+      }
+      if (isToday(invDate)) {
+        todaysCount++;
+      }
+    });
+
+    const activeCount = invoices.filter(i => i.lifecycle !== "CANCELLED" && !i.isDraft).length;
+    const avgValue = activeCount > 0 ? totalRevenue / activeCount : 0;
+
+    return {
+      activeCount,
+      thisMonthRevenue,
+      thisMonthGst,
+      thisMonthCount,
+      todaysCount,
+      highestInvoice,
+      avgValue,
+    };
+  }, [invoices]);
+
   return (
     <AppShell>
       <div className="p-4 sm:p-8 space-y-6">
@@ -113,6 +162,16 @@ function InvoicesList() {
             <Plus className="h-4 w-4" />
             New Invoice
           </Button>
+        </div>
+
+        {/* Invoice KPIs */}
+        <div className="flex overflow-x-auto gap-4 pb-2 snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
+          <KpiCard className="min-w-[240px] snap-center shrink-0" label="This Month Revenue" value={formatINR(analytics.thisMonthRevenue)} icon={IndianRupee} tint="#3b82f6" />
+          <KpiCard className="min-w-[240px] snap-center shrink-0" label="This Month GST" value={formatINR(analytics.thisMonthGst)} icon={Receipt} tint="#f59e0b" />
+          <KpiCard className="min-w-[240px] snap-center shrink-0" label="Invoices This Month" value={analytics.thisMonthCount} icon={FileText} tint="#10b981" />
+          <KpiCard className="min-w-[240px] snap-center shrink-0" label="Today's Invoices" value={analytics.todaysCount} icon={AlertCircle} tint="#8b5cf6" />
+          <KpiCard className="min-w-[240px] snap-center shrink-0" label="Average Invoice" value={formatINR(analytics.avgValue)} icon={TrendingUp} tint="#0ea5e9" />
+          <KpiCard className="min-w-[240px] snap-center shrink-0" label="Highest Invoice" value={formatINR(analytics.highestInvoice)} icon={TrendingUp} tint="#f43f5e" />
         </div>
 
         <div className="rounded-lg border bg-white overflow-x-auto w-full">

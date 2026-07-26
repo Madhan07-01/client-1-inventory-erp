@@ -1,172 +1,197 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { useApp } from "@/lib/store";
-import { computeTotals, formatINR, formatDate } from "@/lib/calc";
-import { FileText, IndianRupee, Receipt, FileClock, TrendingUp } from "lucide-react";
-import type { Invoice } from "@/lib/types";
-import { effectiveStatus } from "@/lib/quotation-actions";
+import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
+import { formatINR } from "@/lib/calc";
+import {
+  FileText,
+  IndianRupee,
+  Receipt,
+  FileClock,
+  TrendingUp,
+  Package,
+  Users,
+  Box,
+  Plus,
+  ScanBarcode,
+  Settings,
+  PieChart
+} from "lucide-react";
+import { KpiCard } from "@/components/analytics/KpiCard";
+import { TrendChart } from "@/components/analytics/TrendChart";
+import { DualBarChart } from "@/components/analytics/DualBarChart";
+import { HorizontalBarList } from "@/components/analytics/HorizontalBarList";
+import { ActivityTimeline } from "@/components/analytics/ActivityTimeline";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DateRangeFilter } from "@/lib/analytics";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
-      { title: "Dashboard · FastenerERP Billing" },
-      { name: "description", content: "Overview of invoices, revenue and pending payments." },
+      { title: "Dashboard · FastenerERP Analytics" },
+      { name: "description", content: "Executive Analytics Dashboard" },
     ],
   }),
   component: Dashboard,
 });
 
 function Dashboard() {
-  const allInvoices = useApp((s) => s.invoices);
-  const allQuotations = useApp((s) => s.quotations);
-  const invoices = allInvoices.filter((i) => i.lifecycle !== "CANCELLED" && !i.isDraft);
-  const quotations = allQuotations.filter((q) => q.lifecycle !== "CANCELLED");
-
-  let revenue = 0;
-  let gstCollected = 0;
-  for (const inv of invoices) {
-    const t = computeTotals(inv);
-    revenue += t.grandTotal;
-    gstCollected += t.gstTotal;
-  }
-
-  let quotationValue = 0;
-  let draftCount = 0;
-  let convertedCount = 0;
-  let expiredCount = 0;
-  let cancelledCount = 0;
-  for (const q of quotations) {
-    const t = computeTotals(q as unknown as Invoice);
-    quotationValue += t.grandTotal;
-    const s = effectiveStatus(q);
-    if (s === "draft") draftCount++;
-    else if (s === "converted") convertedCount++;
-    else if (s === "expired") expiredCount++;
-    else if (s === "cancelled") cancelledCount++;
-  }
-  const totalForRate = draftCount + convertedCount + expiredCount;
-  const conversionRate = totalForRate > 0 ? Math.round((convertedCount / totalForRate) * 100) : 0;
-
-  const recent = [...invoices].sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1)).slice(0, 8);
-
-  const cards = [
-    {
-      label: "Total Invoices",
-      value: invoices.length.toString(),
-      icon: FileText,
-      tint: "var(--surface-header)",
-    },
-    {
-      label: "Total Revenue",
-      value: formatINR(revenue),
-      icon: IndianRupee,
-      tint: "var(--surface-summary)",
-    },
-    {
-      label: "GST Collected",
-      value: formatINR(gstCollected),
-      icon: Receipt,
-      tint: "var(--surface-invoice)",
-    },
-    {
-      label: "Total Quotations",
-      value: quotations.length.toString(),
-      icon: FileClock,
-      tint: "var(--surface-customer)",
-    },
-    {
-      label: "Quotation Value",
-      value: formatINR(quotationValue),
-      icon: IndianRupee,
-      tint: "var(--surface-header)",
-    },
-    {
-      label: `Conversion Rate (${convertedCount}/${totalForRate})`,
-      value: `${conversionRate}%`,
-      icon: TrendingUp,
-      tint: "var(--surface-summary)",
-    },
-  ];
-  void expiredCount;
-  void cancelledCount;
+  const {
+    filter,
+    setFilter,
+    kpis,
+    revenueTrend,
+    topCustomers,
+    topProducts,
+    recentActivity
+  } = useDashboardAnalytics();
 
   return (
     <AppShell>
-      <div className="p-8 space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Snapshot of your billing activity.</p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {cards.map((c) => {
-            const Icon = c.icon;
-            return (
-              <div key={c.label} className="rounded-lg border bg-white p-5">
-                <div
-                  className="h-10 w-10 rounded-md flex items-center justify-center mb-4"
-                  style={{ background: c.tint }}
-                >
-                  <Icon className="h-5 w-5 text-foreground/70" />
-                </div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {c.label}
-                </div>
-                <div className="text-2xl font-bold mt-1">{c.value}</div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="grid grid-cols-1 gap-6">
-          <div className="rounded-lg border bg-white">
-            <div className="px-5 py-4 border-b flex items-center justify-between">
-              <h2 className="font-semibold">Recent Invoices</h2>
-              <Link to="/invoices" className="text-sm text-primary hover:underline">
-                View all
-              </Link>
-            </div>
-            {recent.length === 0 ? (
-              <div className="p-10 text-center text-sm text-muted-foreground">
-                No invoices yet. Click "New Invoice" to create one.
-              </div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="text-left text-muted-foreground">
-                  <tr className="border-b">
-                    <th className="px-5 py-3 font-medium">Invoice #</th>
-                    <th className="px-5 py-3 font-medium">Customer</th>
-                    <th className="px-5 py-3 font-medium">Date</th>
-                    <th className="px-5 py-3 font-medium text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recent.map((inv) => {
-                    const t = computeTotals(inv);
-                    return (
-                      <tr key={inv.id} className="border-b last:border-0 hover:bg-muted/40">
-                        <td className="px-5 py-3">
-                          <Link
-                            to="/invoices/$id"
-                            params={{ id: inv.id }}
-                            className="font-medium hover:underline"
-                          >
-                            {inv.number}
-                          </Link>
-                        </td>
-                        <td className="px-5 py-3">{inv.customer.name}</td>
-                        <td className="px-5 py-3">{formatDate(inv.date)}</td>
-                        <td className="px-5 py-3 text-right tabular-nums">
-                          {formatINR(t.grandTotal)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
+      <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
+        
+        {/* Header & Filter */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Command Centre</h1>
+            <p className="text-sm text-muted-foreground mt-1">Executive overview of your business.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={filter} onValueChange={(val: DateRangeFilter) => setFilter(val)}>
+              <SelectTrigger className="w-[180px] bg-white">
+                <SelectValue placeholder="Select Date Range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TODAY">Today</SelectItem>
+                <SelectItem value="YESTERDAY">Yesterday</SelectItem>
+                <SelectItem value="LAST_7_DAYS">Last 7 Days</SelectItem>
+                <SelectItem value="LAST_30_DAYS">Last 30 Days</SelectItem>
+                <SelectItem value="THIS_MONTH">This Month</SelectItem>
+                <SelectItem value="LAST_MONTH">Last Month</SelectItem>
+                <SelectItem value="THIS_QUARTER">This Quarter</SelectItem>
+                <SelectItem value="THIS_YEAR">This Year</SelectItem>
+                <SelectItem value="ALL">All Time</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
+
+        {/* SECTION 1: Executive KPI Overview */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard
+            label="Total Revenue"
+            value={formatINR(kpis.revenue)}
+            icon={IndianRupee}
+            tint="#3b82f6"
+            growth={kpis.revenueGrowth}
+            comparisonText="vs prev period"
+          />
+          <KpiCard
+            label="Invoices Generated"
+            value={kpis.count}
+            icon={FileText}
+            tint="#10b981"
+            growth={kpis.invoiceGrowth}
+            comparisonText="vs prev period"
+          />
+          <KpiCard
+            label="GST Collected"
+            value={formatINR(kpis.gst)}
+            icon={Receipt}
+            tint="#f59e0b"
+          />
+          <KpiCard
+            label="Active Customers"
+            value={kpis.activeCustomers}
+            icon={Users}
+            tint="#8b5cf6"
+          />
+          <KpiCard
+            label="Avg. Invoice Value"
+            value={formatINR(kpis.avgInvoiceValue)}
+            icon={TrendingUp}
+            tint="#0ea5e9"
+          />
+          <KpiCard
+            label="Quotation Value"
+            value={formatINR(kpis.quotationValue)}
+            icon={FileClock}
+            tint="#f43f5e"
+          />
+          <KpiCard
+            label="Net Inventory Value"
+            value={formatINR(kpis.netInventoryValue)}
+            icon={Box}
+            tint="#6366f1"
+          />
+          <KpiCard
+            label="Low Stock Items"
+            value={kpis.lowStockProducts}
+            icon={Package}
+            tint="#ef4444"
+          />
+        </div>
+
+        {/* SECTION 2 & 3: Revenue & GST Analytics */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <TrendChart 
+              title="Revenue & Invoice Trend" 
+              data={revenueTrend} 
+            />
+          </div>
+          <div className="lg:col-span-1">
+            <DualBarChart 
+              title="Sales vs GST" 
+              data={revenueTrend.map(d => ({ name: d.dateLabel, revenue: d.revenue, gst: d.gst }))} 
+            />
+          </div>
+        </div>
+
+        {/* SECTION 5 & 6: Customer & Product Analytics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <HorizontalBarList 
+            title="Top Customers by Revenue" 
+            data={topCustomers}
+            valueFormatter="currency"
+          />
+          <HorizontalBarList 
+            title="Top Selling Products" 
+            data={topProducts}
+            valueFormatter="currency"
+          />
+        </div>
+
+        {/* SECTION 9 & 10: Activity & Actions */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <ActivityTimeline events={recentActivity} />
+          </div>
+          <div className="lg:col-span-1 space-y-4">
+            <div className="bg-white border rounded-xl p-6 shadow-sm">
+              <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <Link to="/invoices/new" className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border">
+                  <Plus className="w-6 h-6 text-blue-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-700">New Invoice</span>
+                </Link>
+                <Link to="/inventory" className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border">
+                  <Box className="w-6 h-6 text-purple-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-700">Add Stock</span>
+                </Link>
+                <Link to="/reports" className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border">
+                  <PieChart className="w-6 h-6 text-green-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-700">Reports</span>
+                </Link>
+                <Link to="/settings" className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border">
+                  <Settings className="w-6 h-6 text-gray-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-700">Settings</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </AppShell>
   );

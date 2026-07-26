@@ -1,0 +1,1 @@
+ALTER TABLE inventory_stock ADD COLUMN IF NOT EXISTS customField1 text; ALTER TABLE inventory_stock ADD COLUMN IF NOT EXISTS customField2 text; ALTER TABLE inventory_stock ADD COLUMN IF NOT EXISTS customField3 text;

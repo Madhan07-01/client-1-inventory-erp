@@ -271,3 +271,70 @@ export function printProductLabel(
     }, 100);
   }, 300);
 }
+
+export async function downloadProductLabel(
+  batch: InventoryStock,
+  product: ProductMasterEntry,
+  warehouseName: string,
+  locationName: string,
+  company?: Settings["company"]
+) {
+  if (!product.sku) {
+    alert("This product needs an SKU before downloading a label.");
+    return;
+  }
+
+  const html = buildLabelHtml(batch, product, warehouseName, locationName, company);
+
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import("html2canvas-pro"),
+    import("jspdf"),
+  ]);
+
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText =
+    "position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;background:#fff;";
+  document.body.appendChild(iframe);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      iframe.addEventListener("load", () => resolve(), { once: true });
+      iframe.addEventListener("error", () => reject(new Error("iframe load failed")), {
+        once: true,
+      });
+      const doc = iframe.contentDocument;
+      if (!doc) {
+        reject(new Error("iframe document unavailable"));
+        return;
+      }
+      doc.open();
+      doc.write(html);
+      doc.close();
+    });
+
+    const idoc = iframe.contentDocument!;
+    const pageEl = idoc.querySelector(".print-label") as HTMLElement | null;
+    if (!pageEl) throw new Error("Label page element not found");
+
+    const canvas = await html2canvas(pageEl, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+    
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+    
+    const safeName = (product.sku || "label").replace(/[^a-zA-Z0-9-]/g, "_");
+    pdf.save(`label_${safeName}.pdf`);
+  } catch (error) {
+    console.error("Failed to generate Label PDF:", error);
+    alert("Failed to generate PDF. See console for details.");
+  } finally {
+    document.body.removeChild(iframe);
+  }
+}

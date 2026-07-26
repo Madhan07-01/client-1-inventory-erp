@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductMasterManager } from "@/components/inventory/ProductMasterManager";
 import { WarehouseManager } from "@/components/inventory/WarehouseManager";
 import { Pencil } from "lucide-react";
-import { printProductLabel } from "@/components/ProductLabelPdf";
+import { printProductLabel, downloadProductLabel } from "@/components/ProductLabelPdf";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -632,6 +632,30 @@ function InventoryPage() {
                                   }}
                                 >
                                   <Printer className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Download Warehouse Label PDF"
+                                  className="text-blue-500 hover:text-blue-700"
+                                  onClick={() => {
+                                    const prod = settings.productMaster.find((p) => p.id === row.productId);
+                                    if (prod) {
+                                      const w = warehouses.find(wh => wh.id === row.warehouseId);
+                                      const loc = w?.locations.find(l => l.id === row.locationId);
+                                      downloadProductLabel(
+                                        row as InventoryStock, 
+                                        prod, 
+                                        w?.name || row.warehouseId, 
+                                        loc?.name || row.locationId, 
+                                        settings.company
+                                      );
+                                    } else {
+                                      toast.error("Product catalog entry not found for this stock.");
+                                    }
+                                  }}
+                                >
+                                  <Download className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"

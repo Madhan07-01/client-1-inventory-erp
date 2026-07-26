@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function blankItem(): InvoiceItem {
   return {
@@ -1008,12 +1009,22 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                     })()}
                   </td>
                   <td className="px-2 py-1">
-                    <Input
-                      list="hsn-history-list"
-                      value={it.hsn}
-                      onChange={(e) => updateItem(it.id, { hsn: e.target.value })}
-                      placeholder="7318"
-                    />
+                    <Select
+                      value={it.hsn || undefined}
+                      onValueChange={(val) => updateItem(it.id, { hsn: val === "other" ? "" : val })}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="7318" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="7318">7318</SelectItem>
+                        <SelectItem value="7204">7204</SelectItem>
+                        {hsnHistory.filter(h => h !== "7318" && h !== "7204" && h.trim() !== "").map(h => (
+                           <SelectItem key={h} value={h}>{h}</SelectItem>
+                        ))}
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </td>
                   <td className="px-2 py-1 w-28">
                     <Input

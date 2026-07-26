@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useApp } from "@/lib/store";
-import type { ProductMasterEntry } from "@/lib/types";
+import type { ProductMasterEntry, InventoryStock } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,10 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Search, Printer } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Pencil, Trash2, Search, Printer, Download } from "lucide-react";
 import { toast } from "sonner";
 import { cloud } from "@/lib/cloud";
-import { printProductLabel } from "@/components/ProductLabelPdf";
+import { printProductLabel, downloadProductLabel } from "@/components/ProductLabelPdf";
 
 type EditableProduct = {
   id: string;
@@ -215,6 +216,29 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
                         >
                           <Search className="h-4 w-4" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const dummyBatch = { id: p.id, quantity: getProductStock(p.id) } as InventoryStock;
+                            printProductLabel(dummyBatch, p, "Product Master", "N/A", undefined);
+                          }}
+                          title="Print Product Label"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-blue-500 hover:text-blue-700"
+                          onClick={() => {
+                            const dummyBatch = { id: p.id, quantity: getProductStock(p.id) } as InventoryStock;
+                            downloadProductLabel(dummyBatch, p, "Product Master", "N/A", undefined);
+                          }}
+                          title="Download Product Label PDF"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -279,11 +303,21 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">HSN / SAC Code</Label>
-                  <Input
-                    value={editing.hsn}
-                    onChange={(e) => setEditing({ ...editing, hsn: e.target.value })}
-                    placeholder="e.g. 7318"
-                  />
+                  <Select
+                    value={editing.hsn || undefined}
+                    onValueChange={(val) => setEditing({ ...editing, hsn: val === "other" ? "" : val })}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="e.g. 7318" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7318">7318 (Screws/Bolts/Nuts)</SelectItem>
+                      <SelectItem value="7204">7204 (Ferrous Waste/Scrap)</SelectItem>
+                      <SelectItem value="7314">7314 (Cloth/Grill/Netting)</SelectItem>
+                      <SelectItem value="7315">7315 (Chain/Parts)</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>

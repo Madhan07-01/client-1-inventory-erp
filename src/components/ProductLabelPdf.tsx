@@ -16,7 +16,7 @@ function buildLabelHtml(
   // Store only the Warehouse Ledger ID in the QR
   const qrPayload = batch.id || "";
 
-  const rawQrSvg = ReactDOMServer.renderToString(
+  let rawQrSvg = ReactDOMServer.renderToString(
     <QRCodeSVG
       value={qrPayload}
       size={250}
@@ -24,6 +24,10 @@ function buildLabelHtml(
       includeMargin={false}
     />,
   );
+
+  if (!rawQrSvg.includes('xmlns=')) {
+    rawQrSvg = rawQrSvg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+  }
 
   const qrBase64 = btoa(unescape(encodeURIComponent(rawQrSvg)));
   const qrImgSrc = `data:image/svg+xml;base64,${qrBase64}`;

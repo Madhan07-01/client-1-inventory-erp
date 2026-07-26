@@ -49,22 +49,14 @@ export function computeTotals(invoice: Invoice): InvoiceTotals {
   let sgst: number;
   let igst: number;
 
-  if (invoice.taxOverride) {
-    if (isInterState) {
-      igst = invoice.igstAmountOverride ?? (subtotal * igstPercent) / 100;
-      cgst = igst / 2;
-      sgst = igst / 2;
-    } else {
-      cgst = invoice.cgstAmountOverride ?? (subtotal * cgstPercent) / 100;
-      sgst = invoice.sgstAmountOverride ?? (subtotal * sgstPercent) / 100;
-      igst = cgst + sgst;
-    }
+  if (isInterState) {
+    igst = invoice.igstAmountOverride ?? (subtotal * igstPercent) / 100;
+    cgst = igst / 2;
+    sgst = igst / 2;
   } else {
-    // Per-row GST split evenly. We populate all three breakdown values for
-    // display (CGST + SGST always equals IGST), regardless of mode.
-    cgst = itemsGst / 2;
-    sgst = itemsGst / 2;
-    igst = itemsGst;
+    cgst = invoice.cgstAmountOverride ?? (subtotal * cgstPercent) / 100;
+    sgst = invoice.sgstAmountOverride ?? (subtotal * sgstPercent) / 100;
+    igst = cgst + sgst;
   }
   // CGST + SGST = IGST. Only count one side.
   const gstTotal = igst;

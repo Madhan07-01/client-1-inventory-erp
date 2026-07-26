@@ -1,27 +1,20 @@
 import * as ReactDOMServer from "react-dom/server";
 import { QRCodeSVG } from "qrcode.react";
-import type { ProductMasterEntry, Settings } from "@/lib/types";
+import type { ProductMasterEntry, InventoryStock, Settings } from "@/lib/types";
 
 /**
  * Generates an HTML string for a printable QR product specification label,
  * scaled to occupy ~90% of the printable A4 page in a single page layout.
  */
-function buildLabelHtml(product: ProductMasterEntry, _company?: Settings["company"]) {
-  const payloadObj = {
-    productId: product.id || "",
-    sku: product.sku || "",
-    description: product.description || "",
-    brandName: product.brandName || "",
-    lotNumber: product.lotNo || "",
-    itemType: product.itemType || "",
-    size: product.size || "",
-    finish: product.finish || "",
-    grade: product.grade || "",
-    threadType: product.threadType || "",
-    threadLength: product.threadLength || "",
-  };
-
-  const qrPayload = JSON.stringify(payloadObj);
+function buildLabelHtml(
+  batch: InventoryStock,
+  product: ProductMasterEntry,
+  warehouseName: string,
+  locationName: string,
+  _company?: Settings["company"]
+) {
+  // Store only the Warehouse Ledger ID in the QR
+  const qrPayload = batch.id || "";
 
   const qrSvgString = ReactDOMServer.renderToString(
     <QRCodeSVG
@@ -33,7 +26,7 @@ function buildLabelHtml(product: ProductMasterEntry, _company?: Settings["compan
   );
 
   const itemTypeHeader = (product.itemType || "BOLT NUT WASHER SET").toUpperCase();
-  const productSize = product.size ? product.size.trim() : "";
+  const productSize = (batch.size || product.size || "").trim();
 
   return `
     <!DOCTYPE html>
@@ -198,32 +191,42 @@ function buildLabelHtml(product: ProductMasterEntry, _company?: Settings["compan
             <tr>
               <td class="label-col">Brand</td>
               <td class="separator-col">:</td>
-              <td class="value-col">${product.brandName || "—"}</td>
+              <td class="value-col">${batch.brandName || product.brandName || "—"}</td>
             </tr>
             <tr>
               <td class="label-col">Lot Number</td>
               <td class="separator-col">:</td>
-              <td class="value-col">${product.lotNo || "—"}</td>
+              <td class="value-col">${batch.lotNo || "—"}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Warehouse</td>
+              <td class="separator-col">:</td>
+              <td class="value-col">${warehouseName} ${locationName ? `(${locationName})` : ""}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Current Stock</td>
+              <td class="separator-col">:</td>
+              <td class="value-col">${batch.quantity}</td>
             </tr>
             <tr>
               <td class="label-col">Finish</td>
               <td class="separator-col">:</td>
-              <td class="value-col">${product.finish || "—"}</td>
+              <td class="value-col">${batch.finish || "—"}</td>
             </tr>
             <tr>
               <td class="label-col">Grade</td>
               <td class="separator-col">:</td>
-              <td class="value-col">${product.grade || "—"}</td>
+              <td class="value-col">${batch.grade || "—"}</td>
             </tr>
             <tr>
               <td class="label-col">Thread Type</td>
               <td class="separator-col">:</td>
-              <td class="value-col">${product.threadType || "—"}</td>
+              <td class="value-col">${batch.thread || "—"}</td>
             </tr>
             <tr>
-              <td class="label-col">Thread Length</td>
+              <td class="label-col">Print Date</td>
               <td class="separator-col">:</td>
-              <td class="value-col">${product.threadLength || "—"}</td>
+              <td class="value-col">${new Date().toLocaleDateString("en-IN")}</td>
             </tr>
           </table>
         </div>
@@ -232,13 +235,19 @@ function buildLabelHtml(product: ProductMasterEntry, _company?: Settings["compan
   `;
 }
 
-export function printProductLabel(product: ProductMasterEntry, company?: Settings["company"]) {
+export function printProductLabel(
+  batch: InventoryStock,
+  product: ProductMasterEntry,
+  warehouseName: string,
+  locationName: string,
+  company?: Settings["company"]
+) {
   if (!product.sku) {
     alert("This product needs an SKU before printing a label.");
     return;
   }
 
-  const html = buildLabelHtml(product, company);
+  const html = buildLabelHtml(batch, product, warehouseName, locationName, company);
 
   const popup = window.open(
     "",

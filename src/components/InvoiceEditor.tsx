@@ -131,11 +131,24 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
 
   // Get batches for a given product across warehouses
   function getBatchesForProduct(productId: string): InventoryStock[] {
-    let batches = inventoryStock.filter((s) => s.productId === productId && s.quantity > 0);
-    if (inv.dispatchWarehouseId) {
-      batches = batches.filter((s) => s.warehouseId === inv.dispatchWarehouseId);
-    }
-    return batches;
+    return inventoryStock.filter(
+      (s) =>
+        s.productId === productId &&
+        s.quantity > 0 &&
+        (inv.dispatchWarehouseId ? s.warehouseId === inv.dispatchWarehouseId : true) &&
+        (inv.dispatchLocationId ? s.locationId === inv.dispatchLocationId : true),
+    );
+  }
+
+  function getOldestBatchIdForProduct(productId: string): string | undefined {
+    const batches = getBatchesForProduct(productId);
+    if (batches.length === 0) return undefined;
+    const sorted = [...batches].sort((a, b) => {
+      const dateA = a.purchaseDate || "9999-12-31";
+      const dateB = b.purchaseDate || "9999-12-31";
+      return dateA.localeCompare(dateB);
+    });
+    return sorted[0].id;
   }
 
   // Format a batch label
@@ -194,9 +207,23 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
 
   // Handle successful camera scan
   const handleCameraScan = (barcode: string) => {
-    const match = activeProducts.find(
-      (p) => p.sku === barcode || p.barcodeValue === barcode || p.qrValue === barcode,
-    );
+    // 1. Check if it's a Warehouse Ledger ID (Batch)
+    const batchMatch = inventoryStock.find((s) => s.id === barcode);
+    let match = null;
+    let allocatedBatchId: string | undefined = undefined;
+
+    if (batchMatch) {
+      match = activeProducts.find((p) => p.id === batchMatch.productId) || null;
+      allocatedBatchId = batchMatch.id;
+    } else {
+      // 2. Check if it's a Product QR/Barcode
+      match = activeProducts.find(
+        (p) => p.sku === barcode || p.barcodeValue === barcode || p.qrValue === barcode,
+      ) || null;
+      if (match) {
+        allocatedBatchId = getOldestBatchIdForProduct(match.id);
+      }
+    }
 
     if (match) {
       const available = getAvailableStock(match.description);
@@ -206,8 +233,9 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       }
 
       setInv((s) => {
+        // Find existing row with SAME batch (if applicable) and same product
         const existing = s.items.find(
-          (it) => it.description === match.description && it.hsn === match.hsn,
+          (it) => it.description === match.description && it.hsn === match.hsn && it.stockBatchId === allocatedBatchId,
         );
 
         if (existing) {
@@ -229,6 +257,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
             price: match.defaultRate ?? null,
             gstPercent: match.gstPercent ?? 0,
             quantity: 1,
+            stockBatchId: allocatedBatchId
           };
           
           const lastItem = s.items[s.items.length - 1];
@@ -244,7 +273,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
         }
       });
     } else {
-      toast.error(`No product found for barcode: ${barcode}`);
+      toast.error(`No product/batch found for barcode: ${barcode}`);
     }
   };
 
@@ -319,14 +348,11 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
     }
 
     // Prefill description only — HSN is typed manually per invoice item
-    updateItem(itemId, { description: match.description });
-
-    // If this product has batches, prompt user to pick one
-    const batches = getBatchesForProduct(match.id);
-    if (batches.length > 0) {
-      setBatchPickerItemId(itemId);
-      setBatchPickerProductId(match.id);
-    }
+    const autoAllocatedBatchId = getOldestBatchIdForProduct(match.id);
+    updateItem(itemId, { 
+      description: match.description,
+      stockBatchId: autoAllocatedBatchId 
+    });
   }
   function ensureSaved(extra?: Partial<Invoice>): Invoice {
     let final = inv;
@@ -854,9 +880,24 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                       const avail = getAvailableStock(it.description);
                       if (avail === null) return null;
                       const isOutOfStock = avail <= 0;
+                      
+                      let batchInfo = null;
+                      if (it.stockBatchId) {
+                         const b = inventoryStock.find(s => s.id === it.stockBatchId);
+                         if (b) {
+                           batchInfo = <span className="text-muted-foreground ml-2">(Allocated: {b.lotNo ? `Lot ${b.lotNo}` : b.warehouseId}) <button type="button" onClick={() => { setBatchPickerItemId(it.id); setBatchPickerProductId(b.productId); }} className="text-blue-500 hover:underline ml-1">Change Variant</button></span>;
+                         }
+                      } else if (!isOutOfStock) {
+                         const match = activeProducts.find(p => p.description === it.description);
+                         if (match) {
+                            batchInfo = <button type="button" onClick={() => { setBatchPickerItemId(it.id); setBatchPickerProductId(match.id); }} className="text-blue-500 hover:underline ml-2">Select Variant</button>;
+                         }
+                      }
+
                       return (
-                        <div className={`text-[10px] mt-1 font-medium ${isOutOfStock ? "text-destructive" : "text-emerald-600"}`}>
-                          Available: {avail} Units
+                        <div className={`text-[10px] mt-1 font-medium ${isOutOfStock ? "text-destructive" : "text-emerald-600"} flex items-center`}>
+                          <span>Available: {avail} Units</span>
+                          {batchInfo}
                         </div>
                       );
                     })()}
@@ -1020,13 +1061,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                 <Label className="text-xs text-muted-foreground">IGST Amount</Label>
                 <Input
                   type="number"
-                  value={
-                    inv.taxOverride
-                      ? (inv.igstAmountOverride ?? Number(totals.igst.toFixed(2)))
-                      : Number(totals.igst.toFixed(2))
-                  }
-                  readOnly={!inv.taxOverride}
-                  className={!inv.taxOverride ? "bg-muted/40" : ""}
+                  value={inv.igstAmountOverride ?? Number(totals.igst.toFixed(2))}
                   onChange={(e) => patch({ igstAmountOverride: Number(e.target.value) || 0 })}
                 />
               </div>
@@ -1045,13 +1080,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                 <Label className="text-xs text-muted-foreground">CGST Amount</Label>
                 <Input
                   type="number"
-                  value={
-                    inv.taxOverride
-                      ? (inv.cgstAmountOverride ?? Number(totals.cgst.toFixed(2)))
-                      : Number(totals.cgst.toFixed(2))
-                  }
-                  readOnly={!inv.taxOverride}
-                  className={!inv.taxOverride ? "bg-muted/40" : ""}
+                  value={inv.cgstAmountOverride ?? Number(totals.cgst.toFixed(2))}
                   onChange={(e) => patch({ cgstAmountOverride: Number(e.target.value) || 0 })}
                 />
               </div>
@@ -1067,13 +1096,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                 <Label className="text-xs text-muted-foreground">SGST Amount</Label>
                 <Input
                   type="number"
-                  value={
-                    inv.taxOverride
-                      ? (inv.sgstAmountOverride ?? Number(totals.sgst.toFixed(2)))
-                      : Number(totals.sgst.toFixed(2))
-                  }
-                  readOnly={!inv.taxOverride}
-                  className={!inv.taxOverride ? "bg-muted/40" : ""}
+                  value={inv.sgstAmountOverride ?? Number(totals.sgst.toFixed(2))}
                   onChange={(e) => patch({ sgstAmountOverride: Number(e.target.value) || 0 })}
                 />
               </div>

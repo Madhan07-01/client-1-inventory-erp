@@ -6,7 +6,7 @@ import type { Warehouse, InventoryStock, InventoryTransaction } from "@/lib/type
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, ScanBarcode, ArrowDownUp, Download, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
+import { Plus, ScanBarcode, ArrowDownUp, Download, ChevronDown, ChevronRight, Trash2, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { useScanner } from "@/hooks/useScanner";
 import { AppShell } from "@/components/AppShell";
@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductMasterManager } from "@/components/inventory/ProductMasterManager";
 import { WarehouseManager } from "@/components/inventory/WarehouseManager";
 import { Pencil } from "lucide-react";
+import { printProductLabel } from "@/components/ProductLabelPdf";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -81,6 +82,8 @@ function InventoryPage() {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportType, setExportType] = useState<"PRODUCT_MASTER" | "FLAT_STOCK" | "PIVOT">("PIVOT");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<string>("ledger");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [adjustData, setAdjustData] = useState<AdjustData>(emptyAdjust);
 
@@ -300,7 +303,19 @@ function InventoryPage() {
       grade: stock.grade || "-",
       thread: stock.thread || "-",
       finish: stock.finish || "-",
+      brandName: stock.brandName || product?.brandName || "-",
     };
+  }).filter((s) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      s.productName.toLowerCase().includes(q) ||
+      s.sku.toLowerCase().includes(q) ||
+      s.lotNo.toLowerCase().includes(q) ||
+      s.size.toLowerCase().includes(q) ||
+      s.grade.toLowerCase().includes(q) ||
+      s.brandName.toLowerCase().includes(q)
+    );
   });
 
   function toggleRow(id: string) {
@@ -314,8 +329,8 @@ function InventoryPage() {
 
   return (
     <AppShell>
-      <div className="p-4 sm:p-8 max-w-6xl mx-auto space-y-6">
-        <Tabs defaultValue="ledger">
+      <div className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto overflow-y-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6 flex overflow-x-auto whitespace-nowrap max-w-full justify-start gap-1 p-1">
             <TabsTrigger value="ledger" className="shrink-0">Stock Ledger</TabsTrigger>
             <TabsTrigger value="products" className="shrink-0">Product Master</TabsTrigger>
@@ -495,6 +510,17 @@ function InventoryPage() {
               </div>
             )}
 
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Input
+                  placeholder="Search by SKU, Product, Brand, Size, Grade, Lot..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full sm:w-80"
+                />
+              </div>
+            </div>
+
             <div className="bg-white border rounded-lg overflow-x-auto w-full">
               <table className="w-full text-xs sm:text-sm min-w-[650px]">
                 <thead className="bg-muted/50 text-left border-b">
@@ -567,6 +593,30 @@ function InventoryPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  title="Print Warehouse Label"
+                                  className="text-blue-500 hover:text-blue-700"
+                                  onClick={() => {
+                                    const prod = settings.productMaster.find((p) => p.id === row.productId);
+                                    if (prod) {
+                                      const w = warehouses.find(wh => wh.id === row.warehouseId);
+                                      const loc = w?.locations.find(l => l.id === row.locationId);
+                                      printProductLabel(
+                                        row as InventoryStock, 
+                                        prod, 
+                                        w?.name || row.warehouseId, 
+                                        loc?.name || row.locationId, 
+                                        settings.company
+                                      );
+                                    } else {
+                                      toast.error("Product catalog entry not found for this stock.");
+                                    }
+                                  }}
+                                >
+                                  <Printer className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   title="Delete Stock Record"
                                   className="text-red-500 hover:text-red-700"
                                   onClick={() => {
@@ -605,7 +655,12 @@ function InventoryPage() {
           </TabsContent>
 
           <TabsContent value="products">
-            <ProductMasterManager />
+            <ProductMasterManager 
+              onViewStock={(sku) => {
+                setActiveTab("ledger");
+                setSearchQuery(sku);
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="warehouses">

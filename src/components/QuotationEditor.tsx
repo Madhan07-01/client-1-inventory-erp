@@ -795,15 +795,6 @@ export function QuotationEditor({
       <div className="rounded-lg border bg-white overflow-hidden">
         <div className="px-5 py-3 border-b font-semibold bg-[var(--surface-summary)] flex items-center justify-between">
           <span>Tax Details</span>
-          <label className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={!!q.taxOverride}
-              disabled={isLocked}
-              onChange={(e) => patch({ taxOverride: e.target.checked })}
-            />
-            Override Tax
-          </label>
         </div>
         <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div>
@@ -825,13 +816,7 @@ export function QuotationEditor({
                 <Label className="text-xs text-muted-foreground">IGST Amount</Label>
                 <Input
                   type="number"
-                  value={
-                    q.taxOverride
-                      ? (q.igstAmountOverride ?? Number(totals.igst.toFixed(2)))
-                      : Number(totals.igst.toFixed(2))
-                  }
-                  readOnly={!q.taxOverride}
-                  className={!q.taxOverride ? "bg-muted/40" : ""}
+                  value={q.igstAmountOverride ?? Number(totals.igst.toFixed(2))}
                   disabled={isLocked}
                   onChange={(e) => patch({ igstAmountOverride: Number(e.target.value) || 0 })}
                 />
@@ -852,13 +837,7 @@ export function QuotationEditor({
                 <Label className="text-xs text-muted-foreground">CGST Amount</Label>
                 <Input
                   type="number"
-                  value={
-                    q.taxOverride
-                      ? (q.cgstAmountOverride ?? Number(totals.cgst.toFixed(2)))
-                      : Number(totals.cgst.toFixed(2))
-                  }
-                  readOnly={!q.taxOverride}
-                  className={!q.taxOverride ? "bg-muted/40" : ""}
+                  value={q.cgstAmountOverride ?? Number(totals.cgst.toFixed(2))}
                   disabled={isLocked}
                   onChange={(e) => patch({ cgstAmountOverride: Number(e.target.value) || 0 })}
                 />
@@ -876,13 +855,7 @@ export function QuotationEditor({
                 <Label className="text-xs text-muted-foreground">SGST Amount</Label>
                 <Input
                   type="number"
-                  value={
-                    q.taxOverride
-                      ? (q.sgstAmountOverride ?? Number(totals.sgst.toFixed(2)))
-                      : Number(totals.sgst.toFixed(2))
-                  }
-                  readOnly={!q.taxOverride}
-                  className={!q.taxOverride ? "bg-muted/40" : ""}
+                  value={q.sgstAmountOverride ?? Number(totals.sgst.toFixed(2))}
                   disabled={isLocked}
                   onChange={(e) => patch({ sgstAmountOverride: Number(e.target.value) || 0 })}
                 />

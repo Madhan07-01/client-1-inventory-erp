@@ -342,6 +342,7 @@ export function rowToStock(r: Row): InventoryStock {
     finish: (r.finish as string) ?? undefined,
     remarks: (r.remarks as string) ?? undefined,
     availableQty: r.available_qty != null ? Number(r.available_qty) : undefined,
+    category: (r.category as "New" | "Acid") ?? "Acid",
   };
 }
 
@@ -353,6 +354,7 @@ export function stockToRow(s: InventoryStock, userId: string) {
     warehouse_id: s.warehouseId,
     location_id: s.locationId || null,
     quantity: s.quantity,
+    category: s.category ?? "Acid",
   };
 }
 

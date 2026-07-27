@@ -46,6 +46,7 @@ type AdjustData = {
   customField1?: string;
   customField2?: string;
   customField3?: string;
+  category: "New" | "Acid";
 };
 
 function emptyAdjust(): AdjustData {
@@ -72,6 +73,7 @@ function emptyAdjust(): AdjustData {
     customField1: "",
     customField2: "",
     customField3: "",
+    category: "New",
   };
 }
 
@@ -161,6 +163,7 @@ function InventoryPage() {
           ...(adjustData.customField1 && { customField1: adjustData.customField1 }),
           ...(adjustData.customField2 && { customField2: adjustData.customField2 }),
           ...(adjustData.customField3 && { customField3: adjustData.customField3 }),
+          category: adjustData.category,
         }
       : {
           id: newId(),
@@ -185,6 +188,7 @@ function InventoryPage() {
           customField1: adjustData.customField1 || undefined,
           customField2: adjustData.customField2 || undefined,
           customField3: adjustData.customField3 || undefined,
+          category: adjustData.category,
         };
 
     const txn: InventoryTransaction = {
@@ -300,6 +304,7 @@ function InventoryPage() {
       thread: stock.thread || "-",
       finish: stock.finish || "-",
       brandName: stock.brandName || product?.brandName || "-",
+      category: stock.category ?? "Acid",
     };
   }).filter((s) => {
     if (!searchQuery) return true;
@@ -497,6 +502,18 @@ function InventoryPage() {
                         <Label>Custom Spec 3</Label>
                         <Input className="mt-1" placeholder="Optional detail..." value={adjustData.customField3 || ""} onChange={(e) => patch({ customField3: e.target.value })} />
                       </div>
+                      <div>
+                        <Label>Category</Label>
+                        <Select value={adjustData.category} onValueChange={(val) => patch({ category: val as "New" | "Acid" })}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Select Category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="New">New</SelectItem>
+                            <SelectItem value="Acid">Acid</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
 
@@ -602,6 +619,7 @@ function InventoryPage() {
                                       purchaseRef: row.purchaseRef !== "-" ? row.purchaseRef : "",
                                       thread: row.thread !== "-" ? row.thread : "",
                                       threadType: row.thread !== "-" ? row.thread : "",
+                                      category: (row.category as "New" | "Acid") ?? "Acid",
                                     });
                                     setIsAdjusting(true);
                                     window.scrollTo({ top: 0, behavior: "smooth" });

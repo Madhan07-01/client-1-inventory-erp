@@ -227,6 +227,8 @@ export interface InventoryStock {
   customField3?: string;
   /** Available-for-sale qty (may differ from quantity if some are reserved) */
   availableQty?: number;
+  /** Category of the stock entry — affects label layout */
+  category?: "New" | "Acid";
 }
 
 export interface InventoryTransaction {

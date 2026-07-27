@@ -34,6 +34,7 @@ function buildLabelHtml(
 
   const itemTypeHeader = (product.itemType || "BOLT NUT WASHER SET").toUpperCase();
   const productSize = (batch.size || "").trim();
+  const isNew = (batch.category ?? "Acid") === "New";
 
   return `
     <!DOCTYPE html>
@@ -174,6 +175,13 @@ function buildLabelHtml(
             font-weight: 600;
             word-break: break-word;
           }
+
+          .qr-border {
+            display: inline-block;
+            border: 2px solid #000;
+            padding: 10px;
+            line-height: 0;
+          }
         </style>
       </head>
       <body>
@@ -182,7 +190,10 @@ function buildLabelHtml(
           ${productSize ? `<div class="size-header">Size : ${productSize}</div>` : ""}
           
           <div class="qr-wrapper">
-            <img src="${qrImgSrc}" alt="QR Code" width="250" height="250" />
+            ${isNew
+              ? `<div class="qr-border"><img src="${qrImgSrc}" alt="QR Code" width="250" height="250" /></div>`
+              : `<img src="${qrImgSrc}" alt="QR Code" width="250" height="250" />`
+            }
           </div>
 
           <div class="divider"></div>
@@ -208,6 +219,7 @@ function buildLabelHtml(
               <td class="separator-col">:</td>
               <td class="value-col">${batch.lotNo || "—"}</td>
             </tr>
+            ${!isNew ? `
             <tr>
               <td class="label-col">Warehouse</td>
               <td class="separator-col">:</td>
@@ -217,7 +229,7 @@ function buildLabelHtml(
               <td class="label-col">Current Stock</td>
               <td class="separator-col">:</td>
               <td class="value-col">${batch.quantity}</td>
-            </tr>
+            </tr>` : ""}
             <tr>
               <td class="label-col">Finish</td>
               <td class="separator-col">:</td>
@@ -233,11 +245,12 @@ function buildLabelHtml(
               <td class="separator-col">:</td>
               <td class="value-col">${batch.thread || "—"}</td>
             </tr>
+            ${!isNew ? `
             <tr>
               <td class="label-col">Print Date</td>
               <td class="separator-col">:</td>
               <td class="value-col">${new Date().toLocaleDateString("en-IN")}</td>
-            </tr>
+            </tr>` : ""}
           </table>
         </div>
       </body>

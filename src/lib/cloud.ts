@@ -526,6 +526,11 @@ export const cloud = {
     if (error) throw error;
   },
 
+  async deleteProduct(id: string) {
+    const { error } = await supabase.from("product_master").delete().eq("id", id);
+    if (error) throw error;
+  },
+
   async upsertInvoice(inv: Invoice) {
     const userId = await currentUserId();
     const { error } = await supabase

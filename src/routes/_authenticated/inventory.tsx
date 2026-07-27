@@ -6,7 +6,7 @@ import type { Warehouse, InventoryStock, InventoryTransaction } from "@/lib/type
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, ScanBarcode, ArrowDownUp, Download, ChevronDown, ChevronRight, Trash2, Printer } from "lucide-react";
+import { Plus, ScanBarcode, ArrowDownUp, Download, ChevronDown, ChevronRight, Trash2, Printer, X, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -84,6 +84,7 @@ function InventoryPage() {
   const insertInventoryTransaction = useApp((s) => s.insertInventoryTransaction);
   const deleteInventoryStock = useApp((s) => s.deleteInventoryStock);
   const warehouses = useApp((s) => s.warehouses);
+  const inventoryTransactions = useApp((s) => s.inventoryTransactions);
 
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -91,6 +92,9 @@ function InventoryPage() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<string>("ledger");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStockIds, setSelectedStockIds] = useState<Set<string>>(new Set());
+  const [deleteTargetStock, setDeleteTargetStock] = useState<any | null>(null);
+  const [deleteBlockedStockMsg, setDeleteBlockedStockMsg] = useState<string | null>(null);
 
   const [adjustData, setAdjustData] = useState<AdjustData>(emptyAdjust);
 
@@ -328,6 +332,61 @@ function InventoryPage() {
     });
   }
 
+  function isStockReferenced(row: any) {
+    return inventoryTransactions.some(
+      (t) =>
+        t.productId === row.productId &&
+        t.warehouseId === row.warehouseId &&
+        t.locationId === row.locationId
+    );
+  }
+
+  function handleStockDeleteClick(row: any) {
+    if (isStockReferenced(row)) {
+      setDeleteBlockedStockMsg(
+        `This stock entry for "${row.productName}" is referenced by inventory transactions. It cannot be deleted to preserve historical integrity.`
+      );
+    } else {
+      setDeleteTargetStock(row);
+    }
+  }
+
+  function executeStockDelete() {
+    if (!deleteTargetStock) return;
+    deleteInventoryStock(deleteTargetStock.id);
+    toast.success("Ledger entry deleted.");
+    setDeleteTargetStock(null);
+    setSelectedStockIds((prev) => {
+      const next = new Set(prev);
+      next.delete(deleteTargetStock.id);
+      return next;
+    });
+  }
+
+  function handleBulkStockDelete() {
+    let deletedCount = 0;
+    let skippedCount = 0;
+
+    if (!window.confirm(`Are you sure you want to delete ${selectedStockIds.size} selected stock entries? Referenced entries will be skipped.`)) return;
+
+    selectedStockIds.forEach((id) => {
+      const row = stockView.find((s) => s.id === id);
+      if (row && isStockReferenced(row)) {
+        skippedCount++;
+      } else if (row) {
+        deleteInventoryStock(id);
+        deletedCount++;
+      }
+    });
+
+    if (skippedCount > 0) {
+      toast.warning(`Deleted ${deletedCount} entries. ${skippedCount} skipped (referenced).`);
+    } else {
+      toast.success(`Deleted ${deletedCount} entries.`);
+    }
+    setSelectedStockIds(new Set());
+  }
+
   return (
     <AppShell>
       <div className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto overflow-y-auto">
@@ -546,11 +605,39 @@ function InventoryPage() {
               </div>
             </div>
 
-            <div className="bg-white border rounded-lg overflow-x-auto w-full">
-              <table className="w-full text-xs sm:text-sm min-w-[650px]">
-                <thead className="bg-muted/50 text-left border-b">
-                  <tr>
-                    <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium w-8"></th>
+            <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+              {selectedStockIds.size > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 sm:static sm:bottom-auto bg-slate-800 text-white p-3 sm:border-b flex items-center justify-between gap-4 z-50">
+                  <div className="text-sm font-medium">{selectedStockIds.size} Selected</div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="destructive" onClick={handleBulkStockDelete} className="whitespace-nowrap">
+                      Delete
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setSelectedStockIds(new Set())} className="text-slate-300 hover:text-white">
+                      <X className="h-4 w-4 mr-1" /> Clear
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs sm:text-sm min-w-[650px]">
+                  <thead className="bg-muted/50 text-left border-b">
+                    <tr>
+                      <th className="px-3 py-2.5 sm:px-4 sm:py-3 w-10">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 h-4 w-4"
+                          checked={stockView.length > 0 && selectedStockIds.size === stockView.length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedStockIds(new Set(stockView.map((s) => s.id as string)));
+                            } else {
+                              setSelectedStockIds(new Set());
+                            }
+                          }}
+                        />
+                      </th>
+                      <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium w-8"></th>
                     <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium">Product</th>
                     <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium">SKU</th>
                     <th className="px-3 py-2.5 sm:px-4 sm:py-3 font-medium">Warehouse</th>
@@ -575,7 +662,20 @@ function InventoryPage() {
                       const hasDetails = row.supplier !== "-" || row.finish !== "-" || row.thread !== "-" || row.purchaseRate;
                       return (
                         <Fragment key={row.id || String(i)}>
-                          <tr className="hover:bg-muted/20">
+                          <tr className={["hover:bg-muted/20 transition-colors", selectedStockIds.has(row.id as string) ? "bg-muted/60" : ""].join(" ")}>
+                            <td className="px-3 py-2.5 sm:px-4 sm:py-3">
+                              <input
+                                type="checkbox"
+                                className="rounded border-gray-300 h-4 w-4"
+                                checked={selectedStockIds.has(row.id as string)}
+                                onChange={(e) => {
+                                  const next = new Set(selectedStockIds);
+                                  if (e.target.checked) next.add(row.id as string);
+                                  else next.delete(row.id as string);
+                                  setSelectedStockIds(next);
+                                }}
+                              />
+                            </td>
                             <td className="px-3 py-2.5 sm:px-4 sm:py-3 text-center">
                               {hasDetails && (
                                 <button onClick={() => toggleRow(row.id || String(i))} className="text-muted-foreground hover:text-foreground">
@@ -680,12 +780,7 @@ function InventoryPage() {
                                   size="sm"
                                   title="Delete Stock Record"
                                   className="text-red-500 hover:text-red-700"
-                                  onClick={() => {
-                                    if (window.confirm("Are you sure you want to delete this ledger entry? This cannot be undone.")) {
-                                      deleteInventoryStock(row.id as string);
-                                      toast.success("Ledger entry deleted.");
-                                    }
-                                  }}
+                                  onClick={() => handleStockDeleteClick(row)}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -694,7 +789,7 @@ function InventoryPage() {
                           </tr>
                           {isExpanded && hasDetails && (
                             <tr key={`${row.id}-detail`} className="bg-muted/10">
-                              <td colSpan={10} className="px-4 py-3 sm:px-8">
+                              <td colSpan={11} className="px-4 py-3 sm:px-8">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-muted-foreground">
                                   <div><span className="font-medium text-foreground">Supplier:</span> {row.supplier}</div>
                                   <div><span className="font-medium text-foreground">Purchase Date:</span> {row.purchaseDate}</div>
@@ -713,7 +808,8 @@ function InventoryPage() {
                 </tbody>
               </table>
             </div>
-          </TabsContent>
+          </div>
+        </TabsContent>
 
           <TabsContent value="products">
             <ProductMasterManager 
@@ -766,6 +862,49 @@ function InventoryPage() {
               <Download className="w-4 h-4" />
               Download CSV
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTargetStock} onOpenChange={(o) => !o && setDeleteTargetStock(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete Stock Entry
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm">
+              Are you sure you want to delete the ledger entry for <strong>{deleteTargetStock?.productName}</strong>?
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              This action cannot be undone.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTargetStock(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={executeStockDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Blocked Dialog */}
+      <Dialog open={!!deleteBlockedStockMsg} onOpenChange={(o) => !o && setDeleteBlockedStockMsg(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cannot Delete Stock Entry</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm">{deleteBlockedStockMsg}</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setDeleteBlockedStockMsg(null)}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

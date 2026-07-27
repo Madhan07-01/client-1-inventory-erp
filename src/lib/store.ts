@@ -32,6 +32,7 @@ interface AppState {
   updateCustomer: (c: Customer) => void;
   deleteCustomer: (id: string) => void;
   upsertProductMaster: (entry: Partial<ProductMasterEntry> & { description: string }) => void;
+  deleteProductMaster: (id: string) => void;
   saveInvoice: (inv: Invoice, oldInv?: Invoice) => void;
   deleteInvoice: (id: string) => void;
   nextInvoiceNumber: () => string;
@@ -219,6 +220,16 @@ export const useApp = create<AppState>()((set, get) => ({
       const next = [...list];
       next[idx] = updated;
       return { settings: { ...s.settings, productMaster: next } };
+    }),
+  deleteProductMaster: (id) =>
+    set((state) => {
+      bg(cloud.deleteProduct(id), "Delete product");
+      return {
+        settings: {
+          ...state.settings,
+          productMaster: state.settings.productMaster.filter((p) => p.id !== id),
+        },
+      };
     }),
   saveInvoice: (inv, oldInv) =>
     set((s) => {

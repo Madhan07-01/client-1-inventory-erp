@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Search, Printer, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Printer, Download, X, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { cloud } from "@/lib/cloud";
 import { printProductLabel, downloadProductLabel } from "@/components/ProductLabelPdf";
@@ -43,11 +43,17 @@ function emptyProduct(): EditableProduct {
 export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: string) => void }) {
   const products = useApp((s) => s.settings.productMaster);
   const inventoryStock = useApp((s) => s.inventoryStock);
+  const invoices = useApp((s) => s.invoices);
+  const quotations = useApp((s) => s.quotations);
   const company = useApp((s) => s.settings.company);
   const upsertProduct = useApp((s) => s.upsertProductMaster);
+  const deleteProductMaster = useApp((s) => s.deleteProductMaster);
 
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<EditableProduct | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteTarget, setDeleteTarget] = useState<ProductMasterEntry | null>(null);
+  const [deleteBlockedMsg, setDeleteBlockedMsg] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -96,37 +102,80 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
     setEditing(null);
   }
 
-  async function handleDelete(p: ProductMasterEntry) {
-    if (!confirm(`Deactivate "${p.description}"?`)) return;
-    try {
-      const updated = { ...p, active: false };
-      await cloud.upsertProduct(updated);
-      upsertProduct({
-        id: updated.id,
-        sku: updated.sku,
-        description: updated.description,
-        barcodeValue: updated.barcodeValue,
-        qrValue: updated.qrValue,
-        active: false,
-      });
-      toast.success("Product deactivated");
-    } catch {
-      toast.error("Failed to deactivate product");
+  function isProductReferenced(productId: string) {
+    const inStock = inventoryStock.some((s) => s.productId === productId);
+    const inInvoices = invoices.some((inv) => inv.items.some((item) => item.productId === productId));
+    const inQuotations = quotations.some((q) => q.items.some((item) => item.productId === productId));
+    return inStock || inInvoices || inQuotations;
+  }
+
+  function handleDeleteClick(p: ProductMasterEntry) {
+    if (isProductReferenced(p.id)) {
+      setDeleteBlockedMsg(`"${p.description}" is referenced in invoices, quotations, or stock records. It cannot be deleted. You can mark it as Inactive instead.`);
+    } else {
+      setDeleteTarget(p);
     }
   }
 
-  function handleToggleActive(p: ProductMasterEntry) {
-    const updated = { ...p, active: !p.active };
-    cloud.upsertProduct(updated).catch(() => toast.error("Sync failed"));
-    upsertProduct({
-      id: updated.id,
-      sku: updated.sku,
-      description: updated.description,
-      barcodeValue: updated.barcodeValue,
-      qrValue: updated.qrValue,
-      active: updated.active,
+  function executeDelete() {
+    if (!deleteTarget) return;
+    deleteProductMaster(deleteTarget.id);
+    toast.success("Product deleted successfully");
+    setDeleteTarget(null);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(deleteTarget.id);
+      return next;
     });
-    toast.success(updated.active ? "Product activated" : "Product deactivated");
+  }
+
+  function handleBulkActivate() {
+    selectedIds.forEach((id) => {
+      const p = products.find((x) => x.id === id);
+      if (p && !p.active) {
+        const updated = { ...p, active: true };
+        cloud.upsertProduct(updated).catch(console.error);
+        upsertProduct({ ...updated, active: true });
+      }
+    });
+    toast.success(`${selectedIds.size} products activated`);
+    setSelectedIds(new Set());
+  }
+
+  function handleBulkDeactivate() {
+    selectedIds.forEach((id) => {
+      const p = products.find((x) => x.id === id);
+      if (p && p.active) {
+        const updated = { ...p, active: false };
+        cloud.upsertProduct(updated).catch(console.error);
+        upsertProduct({ ...updated, active: false });
+      }
+    });
+    toast.success(`${selectedIds.size} products deactivated`);
+    setSelectedIds(new Set());
+  }
+
+  function handleBulkDelete() {
+    let deletedCount = 0;
+    let skippedCount = 0;
+    
+    if (!confirm(`Are you sure you want to delete ${selectedIds.size} selected products? Referenced products will be skipped.`)) return;
+
+    selectedIds.forEach((id) => {
+      if (isProductReferenced(id)) {
+        skippedCount++;
+      } else {
+        deleteProductMaster(id);
+        deletedCount++;
+      }
+    });
+
+    if (skippedCount > 0) {
+      toast.warning(`Deleted ${deletedCount} products. ${skippedCount} skipped (referenced).`);
+    } else {
+      toast.success(`Deleted ${deletedCount} products.`);
+    }
+    setSelectedIds(new Set());
   }
 
   function getProductStock(productId: string) {
@@ -145,11 +194,33 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
               Manage your product catalogue and specifications.
             </p>
           </div>
-          <Button onClick={() => setEditing(emptyProduct())} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Product
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setEditing(emptyProduct())} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Product
+            </Button>
+          </div>
         </div>
+
+        {selectedIds.size > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 sm:static sm:bottom-auto bg-slate-800 text-white p-3 sm:rounded-lg shadow-lg z-50 flex items-center justify-between gap-4 sm:mb-4">
+            <div className="text-sm font-medium">{selectedIds.size} Selected</div>
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+              <Button size="sm" variant="secondary" onClick={handleBulkActivate} className="whitespace-nowrap">
+                Activate
+              </Button>
+              <Button size="sm" variant="secondary" onClick={handleBulkDeactivate} className="whitespace-nowrap">
+                Deactivate
+              </Button>
+              <Button size="sm" variant="destructive" onClick={handleBulkDelete} className="whitespace-nowrap">
+                Delete
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())} className="text-slate-300 hover:text-white">
+                <X className="h-4 w-4 mr-1" /> Clear
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-lg border bg-white overflow-x-auto w-full">
           <div className="px-4 py-3 border-b flex items-center gap-2">
@@ -171,6 +242,20 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
             <table className="w-full text-xs sm:text-sm min-w-[550px]">
               <thead className="text-left text-muted-foreground">
                 <tr className="border-b">
+                  <th className="px-3 py-2.5 sm:px-5 sm:py-3 w-10">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300 h-4 w-4"
+                      checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds(new Set(filtered.map((p) => p.id)));
+                        } else {
+                          setSelectedIds(new Set());
+                        }
+                      }}
+                    />
+                  </th>
                   <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium">SKU</th>
                   <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium">Description</th>
                   <th className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium text-right">Total Stock</th>
@@ -183,10 +268,24 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
                   <tr
                     key={p.id}
                     className={[
-                      "border-b last:border-0 hover:bg-muted/40",
+                      "border-b last:border-0 hover:bg-muted/40 transition-colors",
                       !p.active ? "opacity-50" : "",
+                      selectedIds.has(p.id) ? "bg-muted/60" : "",
                     ].join(" ")}
                   >
+                    <td className="px-3 py-2.5 sm:px-5 sm:py-3">
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 h-4 w-4"
+                        checked={selectedIds.has(p.id)}
+                        onChange={(e) => {
+                          const next = new Set(selectedIds);
+                          if (e.target.checked) next.add(p.id);
+                          else next.delete(p.id);
+                          setSelectedIds(next);
+                        }}
+                      />
+                    </td>
                     <td className="px-3 py-2.5 sm:px-5 sm:py-3 font-mono text-xs break-all">{p.sku || "—"}</td>
                     <td className="px-3 py-2.5 sm:px-5 sm:py-3 font-medium break-words">{p.description}</td>
                     <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-right whitespace-nowrap">
@@ -197,14 +296,11 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
                       </span>
                     </td>
                     <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-center whitespace-nowrap">
-                      <button type="button" onClick={() => handleToggleActive(p)}>
-                        <Badge
-                          variant={p.active ? "default" : "secondary"}
-                          className="cursor-pointer"
-                        >
-                          {p.active ? "Active" : "Inactive"}
-                        </Badge>
-                      </button>
+                      <Badge
+                        variant={p.active ? "default" : "secondary"}
+                      >
+                        {p.active ? "Active" : "Inactive"}
+                      </Badge>
                     </td>
                     <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-right whitespace-nowrap">
                       <div className="inline-flex items-center justify-end gap-1 shrink-0">
@@ -242,7 +338,7 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
                         <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(p)}>
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(p)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -320,6 +416,27 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
                   </Select>
                 </div>
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Brand Name</Label>
+                  <Input
+                    value={editing.brandName}
+                    onChange={(e) => setEditing({ ...editing, brandName: e.target.value })}
+                    placeholder="e.g. TVS"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <select
+                    value={editing.active ? "active" : "inactive"}
+                    onChange={(e) => setEditing({ ...editing, active: e.target.value === "active" })}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
             </div>
           )}
           <DialogFooter>
@@ -327,6 +444,49 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
               Cancel
             </Button>
             <Button onClick={handleSave}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete Product
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm">
+              Are you sure you want to delete <strong>{deleteTarget?.description}</strong>?
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              This action cannot be undone.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={executeDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Blocked Dialog */}
+      <Dialog open={!!deleteBlockedMsg} onOpenChange={(o) => !o && setDeleteBlockedMsg(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cannot Delete Product</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm">{deleteBlockedMsg}</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setDeleteBlockedMsg(null)}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

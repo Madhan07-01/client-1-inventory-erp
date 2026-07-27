@@ -17,6 +17,7 @@ import { printProductLabel, downloadProductLabel } from "@/components/ProductLab
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/_authenticated/inventory")({
   component: InventoryPage,
@@ -46,6 +47,9 @@ type AdjustData = {
   customField1?: string;
   customField2?: string;
   customField3?: string;
+  hideCustomField1?: boolean;
+  hideCustomField2?: boolean;
+  hideCustomField3?: boolean;
   category: "New" | "Acid";
 };
 
@@ -73,6 +77,9 @@ function emptyAdjust(): AdjustData {
     customField1: "",
     customField2: "",
     customField3: "",
+    hideCustomField1: false,
+    hideCustomField2: false,
+    hideCustomField3: false,
     category: "New",
   };
 }
@@ -164,9 +171,9 @@ function InventoryPage() {
           ...((adjustData.remarks || adjustData.notes) && {
             remarks: adjustData.remarks || adjustData.notes,
           }),
-          ...(adjustData.customField1 && { customField1: adjustData.customField1 }),
-          ...(adjustData.customField2 && { customField2: adjustData.customField2 }),
-          ...(adjustData.customField3 && { customField3: adjustData.customField3 }),
+          ...(adjustData.customField1 && { customField1: adjustData.customField1, hideCustomField1: adjustData.hideCustomField1 }),
+          ...(adjustData.customField2 && { customField2: adjustData.customField2, hideCustomField2: adjustData.hideCustomField2 }),
+          ...(adjustData.customField3 && { customField3: adjustData.customField3, hideCustomField3: adjustData.hideCustomField3 }),
           category: adjustData.category,
         }
       : {
@@ -192,6 +199,9 @@ function InventoryPage() {
           customField1: adjustData.customField1 || undefined,
           customField2: adjustData.customField2 || undefined,
           customField3: adjustData.customField3 || undefined,
+          hideCustomField1: adjustData.hideCustomField1 || false,
+          hideCustomField2: adjustData.hideCustomField2 || false,
+          hideCustomField3: adjustData.hideCustomField3 || false,
           category: adjustData.category,
         };
 
@@ -552,14 +562,32 @@ function InventoryPage() {
                       <div>
                         <Label>Custom Spec 1</Label>
                         <Input className="mt-1" placeholder="Optional detail..." value={adjustData.customField1 || ""} onChange={(e) => patch({ customField1: e.target.value })} />
+                        {adjustData.customField1 && (
+                          <div className="flex items-center space-x-2 mt-2">
+                            <Checkbox id="hideCustomField1" checked={adjustData.hideCustomField1 || false} onCheckedChange={(checked) => patch({ hideCustomField1: !!checked })} />
+                            <label htmlFor="hideCustomField1" className="text-xs font-medium leading-none cursor-pointer">Hide in Product Label</label>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <Label>Custom Spec 2</Label>
                         <Input className="mt-1" placeholder="Optional detail..." value={adjustData.customField2 || ""} onChange={(e) => patch({ customField2: e.target.value })} />
+                        {adjustData.customField2 && (
+                          <div className="flex items-center space-x-2 mt-2">
+                            <Checkbox id="hideCustomField2" checked={adjustData.hideCustomField2 || false} onCheckedChange={(checked) => patch({ hideCustomField2: !!checked })} />
+                            <label htmlFor="hideCustomField2" className="text-xs font-medium leading-none cursor-pointer">Hide in Product Label</label>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <Label>Custom Spec 3</Label>
                         <Input className="mt-1" placeholder="Optional detail..." value={adjustData.customField3 || ""} onChange={(e) => patch({ customField3: e.target.value })} />
+                        {adjustData.customField3 && (
+                          <div className="flex items-center space-x-2 mt-2">
+                            <Checkbox id="hideCustomField3" checked={adjustData.hideCustomField3 || false} onCheckedChange={(checked) => patch({ hideCustomField3: !!checked })} />
+                            <label htmlFor="hideCustomField3" className="text-xs font-medium leading-none cursor-pointer">Hide in Product Label</label>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <Label>Category</Label>
@@ -719,6 +747,12 @@ function InventoryPage() {
                                       purchaseRef: row.purchaseRef !== "-" ? row.purchaseRef : "",
                                       thread: row.thread !== "-" ? row.thread : "",
                                       threadType: row.thread !== "-" ? row.thread : "",
+                                      customField1: (row as any).customField1 || "",
+                                      customField2: (row as any).customField2 || "",
+                                      customField3: (row as any).customField3 || "",
+                                      hideCustomField1: (row as any).hideCustomField1 || false,
+                                      hideCustomField2: (row as any).hideCustomField2 || false,
+                                      hideCustomField3: (row as any).hideCustomField3 || false,
                                       category: (row.category as "New" | "Acid") ?? "Acid",
                                     });
                                     setIsAdjusting(true);

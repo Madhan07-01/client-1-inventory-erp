@@ -225,6 +225,9 @@ export interface InventoryStock {
   customField1?: string;
   customField2?: string;
   customField3?: string;
+  hideCustomField1?: boolean;
+  hideCustomField2?: boolean;
+  hideCustomField3?: boolean;
   /** Available-for-sale qty (may differ from quantity if some are reserved) */
   availableQty?: number;
   /** Category of the stock entry — affects label layout */

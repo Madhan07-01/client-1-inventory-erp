@@ -219,17 +219,6 @@ function buildLabelHtml(
               <td class="separator-col">:</td>
               <td class="value-col">${batch.lotNo || "—"}</td>
             </tr>
-            ${!isNew ? `
-            <tr>
-              <td class="label-col">Warehouse</td>
-              <td class="separator-col">:</td>
-              <td class="value-col">${warehouseName} ${locationName ? `(${locationName})` : ""}</td>
-            </tr>
-            <tr>
-              <td class="label-col">Current Stock</td>
-              <td class="separator-col">:</td>
-              <td class="value-col">${batch.quantity}</td>
-            </tr>` : ""}
             <tr>
               <td class="label-col">Finish</td>
               <td class="separator-col">:</td>
@@ -245,11 +234,22 @@ function buildLabelHtml(
               <td class="separator-col">:</td>
               <td class="value-col">${batch.thread || "—"}</td>
             </tr>
-            ${!isNew ? `
             <tr>
               <td class="label-col">Print Date</td>
               <td class="separator-col">:</td>
               <td class="value-col">${new Date().toLocaleDateString("en-IN")}</td>
+            </tr>
+            ${batch.customField1 && !batch.hideCustomField1 ? `
+            <tr>
+              <td colspan="3" class="value-col">${batch.customField1}</td>
+            </tr>` : ""}
+            ${batch.customField2 && !batch.hideCustomField2 ? `
+            <tr>
+              <td colspan="3" class="value-col">${batch.customField2}</td>
+            </tr>` : ""}
+            ${batch.customField3 && !batch.hideCustomField3 ? `
+            <tr>
+              <td colspan="3" class="value-col">${batch.customField3}</td>
             </tr>` : ""}
           </table>
         </div>

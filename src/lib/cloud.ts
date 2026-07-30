@@ -347,7 +347,7 @@ export function rowToStock(r: Row): InventoryStock {
     hideCustomField1: (r.hide_custom_field_1 as boolean) ?? false,
     hideCustomField2: (r.hide_custom_field_2 as boolean) ?? false,
     hideCustomField3: (r.hide_custom_field_3 as boolean) ?? false,
-    availableQty: r.available_qty != null ? Number(r.available_qty) : undefined,
+
     category: (r.category as "New" | "Acid") ?? "Acid",
   };
 }
@@ -372,7 +372,7 @@ export function stockToRow(s: InventoryStock, userId: string) {
     thread_type: s.threadType ?? s.thread ?? null,
     finish: s.finish ?? null,
     remarks: s.remarks ?? null,
-    available_qty: s.availableQty ?? null,
+
     customfield1: s.customField1 ?? null,
     customfield2: s.customField2 ?? null,
     customfield3: s.customField3 ?? null,

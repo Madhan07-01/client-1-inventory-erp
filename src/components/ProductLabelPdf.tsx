@@ -212,7 +212,7 @@ function buildLabelHtml(
             <tr>
               <td class="label-col">Brand</td>
               <td class="separator-col">:</td>
-              <td class="value-col">${batch.brandName || product.brandName || "—"}</td>
+              <td class="value-col">${batch.brandName || "—"}</td>
             </tr>
             <tr>
               <td class="label-col">Lot Number</td>

@@ -24,6 +24,7 @@ export const Route = createFileRoute("/_authenticated/inventory")({
 });
 
 type AdjustData = {
+  batchId?: string;
   productId: string;
   warehouseId: string;
   locationId: string;
@@ -55,6 +56,7 @@ type AdjustData = {
 
 function emptyAdjust(): AdjustData {
   return {
+    batchId: undefined,
     productId: "",
     warehouseId: "",
     locationId: "",
@@ -135,13 +137,23 @@ function InventoryPage() {
     const now = new Date().toISOString();
 
     // For OUT: find an existing stock batch to decrement (match by product+warehouse+location+batch)
-    const existingStock = inventoryStock.find(
-      (s) =>
-        s.productId === adjustData.productId &&
-        s.warehouseId === adjustData.warehouseId &&
-        s.locationId === adjustData.locationId &&
-        (adjustData.lotNo ? s.lotNo === adjustData.lotNo : true),
-    );
+    const existingStock = adjustData.batchId 
+      ? inventoryStock.find((s) => s.id === adjustData.batchId)
+      : inventoryStock.find(
+          (s) =>
+            s.productId === adjustData.productId &&
+            s.warehouseId === adjustData.warehouseId &&
+            s.locationId === adjustData.locationId &&
+            (s.lotNo || "") === (adjustData.lotNo || "") &&
+            (s.size || "") === (adjustData.size || "") &&
+            (s.grade || "") === (adjustData.grade || "") &&
+            (s.thread || "") === (adjustData.thread || "") &&
+            (s.finish || "") === (adjustData.finish || "") &&
+            (s.category || "Acid") === (adjustData.category || "Acid") &&
+            (s.customField1 || "") === (adjustData.customField1 || "") &&
+            (s.customField2 || "") === (adjustData.customField2 || "") &&
+            (s.customField3 || "") === (adjustData.customField3 || "")
+        );
 
     const currentQty = existingStock?.quantity ?? 0;
     const newQty = currentQty + change;
@@ -319,6 +331,12 @@ function InventoryPage() {
       finish: stock.finish || "-",
       brandName: stock.brandName || product?.brandName || "-",
       category: stock.category ?? "Acid",
+      customField1: stock.customField1 || "",
+      customField2: stock.customField2 || "",
+      customField3: stock.customField3 || "",
+      hideCustomField1: stock.hideCustomField1 || false,
+      hideCustomField2: stock.hideCustomField2 || false,
+      hideCustomField3: stock.hideCustomField3 || false,
     };
   }).filter((s) => {
     if (!searchQuery) return true;
@@ -687,7 +705,7 @@ function InventoryPage() {
                   ) : (
                     stockView.map((row, i) => {
                       const isExpanded = expandedRows.has(row.id || String(i));
-                      const hasDetails = row.supplier !== "-" || row.finish !== "-" || row.thread !== "-" || row.purchaseRate;
+                      const hasDetails = row.supplier !== "-" || row.finish !== "-" || row.thread !== "-" || row.purchaseRate || row.customField1 || row.customField2 || row.customField3;
                       return (
                         <Fragment key={row.id || String(i)}>
                           <tr className={["hover:bg-muted/20 transition-colors", selectedStockIds.has(row.id as string) ? "bg-muted/60" : ""].join(" ")}>
@@ -732,6 +750,7 @@ function InventoryPage() {
                                   onClick={() => {
                                     setAdjustData({
                                       ...emptyAdjust(),
+                                      batchId: row.id,
                                       productId: row.productId,
                                       warehouseId: row.warehouseId,
                                       locationId: row.locationId,
@@ -831,6 +850,9 @@ function InventoryPage() {
                                   <div><span className="font-medium text-foreground">Ref:</span> {row.purchaseRef}</div>
                                   <div><span className="font-medium text-foreground">Thread:</span> {row.thread}</div>
                                   <div><span className="font-medium text-foreground">Finish:</span> {row.finish}</div>
+                                  {row.customField1 && <div><span className="font-medium text-foreground">Spec 1:</span> {row.customField1}</div>}
+                                  {row.customField2 && <div><span className="font-medium text-foreground">Spec 2:</span> {row.customField2}</div>}
+                                  {row.customField3 && <div><span className="font-medium text-foreground">Spec 3:</span> {row.customField3}</div>}
                                 </div>
                               </td>
                             </tr>

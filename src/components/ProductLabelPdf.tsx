@@ -1,3 +1,4 @@
+import React from "react";
 import * as ReactDOMServer from "react-dom/server";
 import { QRCodeSVG } from "qrcode.react";
 import type { ProductMasterEntry, InventoryStock, Settings } from "@/lib/types";
@@ -6,7 +7,7 @@ import type { ProductMasterEntry, InventoryStock, Settings } from "@/lib/types";
  * Generates an HTML string for a printable QR product specification label,
  * scaled to occupy ~90% of the printable A4 page in a single page layout.
  */
-function buildLabelHtml(
+export function buildLabelHtml(
   batch: InventoryStock,
   product: ProductMasterEntry,
   warehouseName: string,
@@ -16,14 +17,19 @@ function buildLabelHtml(
   // Store only the Warehouse Ledger ID in the QR
   const qrPayload = batch.id || "";
 
-  let rawQrSvg = ReactDOMServer.renderToString(
-    <QRCodeSVG
-      value={qrPayload}
-      size={120}
-      level="M"
-      includeMargin={false}
-    />,
-  );
+  let rawQrSvg = "";
+  try {
+    rawQrSvg = ReactDOMServer.renderToString(
+      React.createElement(QRCodeSVG, {
+        value: qrPayload,
+        size: 120,
+        level: "M",
+        includeMargin: false,
+      })
+    );
+  } catch (_err) {
+    rawQrSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="#000"/></svg>';
+  }
 
   if (!rawQrSvg.includes('xmlns=')) {
     rawQrSvg = rawQrSvg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
@@ -50,55 +56,46 @@ function buildLabelHtml(
           }
 
           @page {
-            size: 3in 2in landscape;
-            margin: 0;
+            margin: 0.33in 0.13in 0.46in 0.11in;
           }
 
           html, body {
             margin: 0;
             padding: 0;
-            width: 3in;
-            height: 2in;
             background: white;
             color: #000;
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             -webkit-print-color-adjust: exact;
-            overflow: hidden;
           }
 
           @media print {
-            html, body {
-              width: 3in;
-              height: 2in;
-            }
             .print-label {
-              width: 100% !important;
-              height: 100% !important;
-              margin: 0 !important;
-              padding: 0.1in !important;
               border: none !important;
             }
           }
 
           .print-label {
-            width: 3in;
-            height: 2in;
-            margin: 0 auto;
-            padding: 0.1in;
+            width: 2.4in;
+            height: 1.6in;
+            margin: 0 auto 0.125in auto;
+            padding: 0.08in;
             display: flex;
             flex-direction: column;
             background: #fff;
-            page-break-after: avoid;
-            page-break-before: avoid;
+            page-break-inside: avoid;
             break-inside: avoid;
+          }
+
+          .print-label:not(:last-child) {
+            margin-bottom: 0.125in;
           }
 
           .dotted-lines {
             width: 100%;
-            height: 4px;
+            height: 3px;
             border-top: 1px dotted #000;
             border-bottom: 1px dotted #000;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             flex-shrink: 0;
           }
 
@@ -136,10 +133,10 @@ function buildLabelHtml(
 
           .qr-wrapper img {
             display: block;
-            width: 70px !important;
-            height: 70px !important;
-            max-width: 70px;
-            max-height: 70px;
+            width: 56px !important;
+            height: 56px !important;
+            max-width: 56px;
+            max-height: 56px;
             object-fit: contain;
           }
 
@@ -152,18 +149,18 @@ function buildLabelHtml(
 
           .item-type-header {
             text-align: center;
-            font-size: 11pt;
+            font-size: 8.8pt;
             font-weight: 800;
             color: #000;
             text-transform: uppercase;
-            margin: 0 0 4px 0;
+            margin: 0 0 3px 0;
             line-height: 1.1;
             word-break: break-word;
           }
 
           .size-header {
             text-align: center;
-            font-size: 9pt;
+            font-size: 7.2pt;
             font-weight: 700;
             color: #111;
             margin: 0;
@@ -173,7 +170,7 @@ function buildLabelHtml(
           .specs-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 8pt;
+            font-size: 6.4pt;
             line-height: 1.3;
           }
 
@@ -201,8 +198,8 @@ function buildLabelHtml(
             <div class="left-section">
               <div class="qr-wrapper">
                 ${isNew
-                  ? `<div class="qr-border"><img src="${qrImgSrc}" alt="QR Code" width="70" height="70" /></div>`
-                  : `<img src="${qrImgSrc}" alt="QR Code" width="70" height="70" />`
+                  ? `<div class="qr-border"><img src="${qrImgSrc}" alt="QR Code" width="56" height="56" /></div>`
+                  : `<img src="${qrImgSrc}" alt="QR Code" width="56" height="56" />`
                 }
               </div>
               <div class="item-type-header">${itemTypeHeader}</div>
@@ -309,7 +306,7 @@ export async function downloadProductLabel(
 
   const iframe = document.createElement("iframe");
   iframe.style.cssText =
-    "position:fixed;left:-10000px;top:0;width:3in;height:2in;border:0;background:#fff;";
+    "position:fixed;left:-10000px;top:0;width:2.4in;height:1.6in;border:0;background:#fff;";
   document.body.appendChild(iframe);
 
   try {
@@ -342,7 +339,7 @@ export async function downloadProductLabel(
     const pdf = new jsPDF({
       orientation: "landscape",
       unit: "in",
-      format: [3, 2]
+      format: [2.4, 1.6]
     });
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;

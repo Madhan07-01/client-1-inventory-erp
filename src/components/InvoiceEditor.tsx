@@ -972,15 +972,24 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                 <tr key={it.id} className="border-t">
                   <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
                   <td className="px-2 py-1">
-                    <Input
-                      list="product-master-list"
-                      value={it.description}
-                      onChange={(e) => {
-                        updateItem(it.id, { description: e.target.value });
-                        applyProductByDescription(it.id, e.target.value);
+                    <Select
+                      value={it.description || undefined}
+                      onValueChange={(val) => {
+                        updateItem(it.id, { description: val });
+                        applyProductByDescription(it.id, val);
                       }}
-                      placeholder="e.g. m10 SS bolt"
-                    />
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select Product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeProducts.map((p) => (
+                           <SelectItem key={p.id} value={p.description}>
+                             {p.description} {p.sku ? `(${p.sku})` : ""}
+                           </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {(() => {
                       if (!it.description) return null;
                       const avail = getAvailableStock(it.description);

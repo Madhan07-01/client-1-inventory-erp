@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useApp, newId } from "@/lib/store";
 import type { Invoice, InvoiceItem, Quotation, QuotationStatus, SupplyType } from "@/lib/types";
 import { computeTotals, formatINR, lineTotal, numberToIndianWords } from "@/lib/calc";
@@ -712,16 +713,25 @@ export function QuotationEditor({
                 <tr key={it.id} className="border-t">
                   <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
                   <td className="px-2 py-1">
-                    <Input
-                      list="quotation-product-list"
+                    <Select
                       disabled={isLocked}
-                      value={it.description}
-                      onChange={(e) => {
-                        updateItem(it.id, { description: e.target.value });
-                        applyProductByDescription(it.id, e.target.value);
+                      value={it.description || undefined}
+                      onValueChange={(val) => {
+                        updateItem(it.id, { description: val });
+                        applyProductByDescription(it.id, val);
                       }}
-                      placeholder="e.g. m10 SS bolt"
-                    />
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select Product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeProducts.map((p) => (
+                           <SelectItem key={p.id} value={p.description}>
+                             {p.description} {p.sku ? `(${p.sku})` : ""}
+                           </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </td>
                   <td className="px-2 py-1">
                     <Input

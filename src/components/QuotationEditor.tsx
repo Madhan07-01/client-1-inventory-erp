@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -308,7 +308,7 @@ export function QuotationEditor({
       items: s.items.length > 1 ? s.items.filter((it) => it.id !== id) : s.items,
     }));
   }
-  function applyProductByDescription(itemId: string, desc: string) {
+  function applyProductByDescription(itemId: string, desc: string, explicitBatchId?: string) {
     const match = activeProducts.find(
       (p) => p.description.trim().toLowerCase() === desc.trim().toLowerCase(),
     );
@@ -317,6 +317,7 @@ export function QuotationEditor({
       description: match.description,
       hsn: match.hsn,
       gstPercent: match.gstPercent,
+      stockBatchId: explicitBatchId || undefined,
     };
     if (match.defaultRate != null) p.price = match.defaultRate;
     updateItem(itemId, p);
@@ -805,21 +806,37 @@ export function QuotationEditor({
                   <td className="px-2 py-1">
                     <Select
                       disabled={isLocked}
-                      value={it.description || undefined}
+                      value={it.stockBatchId ? `VAR::${it.description}::${it.stockBatchId}` : (it.description || undefined)}
                       onValueChange={(val) => {
-                        updateItem(it.id, { description: val });
-                        applyProductByDescription(it.id, val);
+                        if (val.startsWith("VAR::")) {
+                          const [, desc, batchId] = val.split("::");
+                          updateItem(it.id, { description: desc, stockBatchId: batchId });
+                          applyProductByDescription(it.id, desc, batchId);
+                        } else {
+                          updateItem(it.id, { description: val, stockBatchId: undefined });
+                          applyProductByDescription(it.id, val);
+                        }
                       }}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select Product" />
                       </SelectTrigger>
                       <SelectContent>
-                        {sortedActiveProducts.map(({ p, avail }) => (
-                          <SelectItem key={p.id} value={p.description}>
-                            {p.description} {p.sku ? `(${p.sku})` : ""} {avail > 0 ? `- Stock: ${avail}` : `- Out of stock`}
-                          </SelectItem>
-                        ))}
+                        {sortedActiveProducts.map(({ p, avail }) => {
+                          const batches = getBatchesForProduct(p.id);
+                          return (
+                            <Fragment key={p.id}>
+                              <SelectItem value={p.description}>
+                                {p.description} {p.sku ? `(${p.sku})` : ""} {avail > 0 ? `- Stock: ${avail}` : `- Out of stock`}
+                              </SelectItem>
+                              {batches.map(b => (
+                                <SelectItem key={b.id} value={`VAR::${p.description}::${b.id}`} className="pl-6 text-muted-foreground text-sm">
+                                  {`${p.description} > ${batchLabel(b)}`}
+                                </SelectItem>
+                              ))}
+                            </Fragment>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     {(() => {

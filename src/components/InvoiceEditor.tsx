@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -403,7 +403,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       shipTo: { city: "", state: "", pincode: "", ...(s.shipTo ?? {}), ...p },
     }));
   }
-  function applyProductByDescription(itemId: string, desc: string) {
+  function applyProductByDescription(itemId: string, desc: string, explicitBatchId?: string) {
     const match = activeProducts.find(
       (p) => p.description.trim().toLowerCase() === desc.trim().toLowerCase(),
     );
@@ -416,7 +416,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
        return;
     }
 
-    const autoAllocatedBatchId = getOldestBatchIdForProduct(match.id);
+    const autoAllocatedBatchId = explicitBatchId || getOldestBatchIdForProduct(match.id);
     const batch = inventoryStock.find(s => s.id === autoAllocatedBatchId);
     const wh = warehouses.find(w => w.id === batch?.warehouseId);
     
@@ -993,21 +993,37 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                   <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
                   <td className="px-2 py-1">
                     <Select
-                      value={it.description || undefined}
+                      value={it.stockBatchId ? `VAR::${it.description}::${it.stockBatchId}` : (it.description || undefined)}
                       onValueChange={(val) => {
-                        updateItem(it.id, { description: val });
-                        applyProductByDescription(it.id, val);
+                        if (val.startsWith("VAR::")) {
+                          const [, desc, batchId] = val.split("::");
+                          updateItem(it.id, { description: desc, stockBatchId: batchId });
+                          applyProductByDescription(it.id, desc, batchId);
+                        } else {
+                          updateItem(it.id, { description: val, stockBatchId: undefined });
+                          applyProductByDescription(it.id, val);
+                        }
                       }}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select Product" />
                       </SelectTrigger>
                       <SelectContent>
-                        {sortedActiveProducts.map(({ p, avail }) => (
-                           <SelectItem key={p.id} value={p.description}>
-                             {p.description} {p.sku ? `(${p.sku})` : ""} {avail > 0 ? `- Stock: ${avail}` : `- Out of stock`}
-                           </SelectItem>
-                        ))}
+                        {sortedActiveProducts.map(({ p, avail }) => {
+                          const batches = getBatchesForProduct(p.id);
+                          return (
+                            <Fragment key={p.id}>
+                              <SelectItem value={p.description}>
+                                {p.description} {p.sku ? `(${p.sku})` : ""} {avail > 0 ? `- Stock: ${avail}` : `- Out of stock`}
+                              </SelectItem>
+                              {batches.map(b => (
+                                <SelectItem key={b.id} value={`VAR::${p.description}::${b.id}`} className="pl-6 text-muted-foreground text-sm">
+                                  {`${p.description} > ${batchLabel(b)}`}
+                                </SelectItem>
+                              ))}
+                            </Fragment>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     {(() => {

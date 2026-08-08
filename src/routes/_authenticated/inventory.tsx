@@ -337,8 +337,16 @@ function InventoryPage() {
       hideCustomField1: stock.hideCustomField1 || false,
       hideCustomField2: stock.hideCustomField2 || false,
       hideCustomField3: stock.hideCustomField3 || false,
+      updatedAt: stock.updatedAt || "",
     };
-  }).filter((s) => {
+  })
+    .sort((a, b) => {
+      // Sort newest (most recently updated/created) first
+      if (a.updatedAt > b.updatedAt) return -1;
+      if (a.updatedAt < b.updatedAt) return 1;
+      return 0;
+    })
+    .filter((s) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (

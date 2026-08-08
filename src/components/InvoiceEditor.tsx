@@ -7,7 +7,7 @@ import { Plus, Trash2, FileDown, Save, Printer, FileText, Check, Layers, AlertTr
 import { useApp, newId } from "@/lib/store";
 import type { Invoice, InvoiceItem, InventoryStock, SupplyType } from "@/lib/types";
 import { cloud } from "@/lib/cloud";
-import { computeTotals, formatINR, lineTotal, numberToIndianWords } from "@/lib/calc";
+import { computeTotals, formatINR, lineTotal, lineSubtotal, numberToIndianWords } from "@/lib/calc";
 import { downloadInvoicePdf, printInvoicePdf } from "@/components/InvoicePdf";
 import { toast } from "sonner";
 import { CameraScannerDialog } from "@/components/CameraScannerDialog";
@@ -98,7 +98,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
   const upsertProductMaster = useApp((s) => s.upsertProductMaster);
 
   const [inv, setInv] = useState<Invoice>(initial);
-  const [saveAsCustomer, setSaveAsCustomer] = useState(false);
+  const [saveAsCustomer, setSaveAsCustomer] = useState(true);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const warehouses = useApp((s) => s.warehouses);
   const inventoryStock = useApp((s) => s.inventoryStock);
@@ -445,10 +445,19 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       // consume official number only on save (already preassigned via initial)
     }
     if (saveAsCustomer && final.customer.name.trim()) {
-      const id = newId();
-      const c = { ...final.customer, id };
-      addCustomer(c);
-      final = { ...final, customer: c };
+      const existing = customers.find((c) => 
+        c.name.trim().toLowerCase() === final.customer.name.trim().toLowerCase() &&
+        (c.phone || "") === (final.customer.phone || "")
+      );
+      if (existing) {
+        final = { ...final, customer: existing };
+      } else {
+        const id = newId();
+        const c = { ...final.customer, id };
+        addCustomer(c);
+        final = { ...final, customer: c };
+      }
+      setSaveAsCustomer(false);
     }
     saveInvoice(final, mode === "edit" ? initial : undefined);
     return final;
@@ -1018,22 +1027,12 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                     })()}
                   </td>
                   <td className="px-2 py-1">
-                    <Select
-                      value={it.hsn || undefined}
-                      onValueChange={(val) => updateItem(it.id, { hsn: val === "other" ? "" : val })}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="7318" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="7318">7318</SelectItem>
-                        <SelectItem value="7204">7204</SelectItem>
-                        {hsnHistory.filter(h => h !== "7318" && h !== "7204" && h.trim() !== "").map(h => (
-                           <SelectItem key={h} value={h}>{h}</SelectItem>
-                        ))}
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      list="hsn-history-list"
+                      placeholder="7318"
+                      value={it.hsn || ""}
+                      onChange={(e) => updateItem(it.id, { hsn: e.target.value })}
+                    />
                   </td>
                   <td className="px-2 py-1 w-28">
                     <Input
@@ -1083,7 +1082,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                     />
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">
-                    {formatINR(lineTotal(it))}
+                    {formatINR(lineSubtotal(it))}
                   </td>
                   <td className="px-2 py-1">
                     <div className="flex gap-1">

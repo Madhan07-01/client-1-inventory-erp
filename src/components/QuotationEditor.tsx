@@ -28,7 +28,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useApp, newId } from "@/lib/store";
 import type { Invoice, InvoiceItem, Quotation, QuotationStatus, SupplyType } from "@/lib/types";
-import { computeTotals, formatINR, lineTotal, numberToIndianWords } from "@/lib/calc";
+import { computeTotals, formatINR, lineTotal, lineSubtotal, numberToIndianWords } from "@/lib/calc";
 import { downloadQuotationPdf, printQuotationPdf } from "@/components/QuotationPdf";
 import {
   convertQuotationToInvoice,
@@ -139,9 +139,11 @@ export function QuotationEditor({
   const consumeQuotationNumber = useApp((s) => s.consumeQuotationNumber);
   const addCustomer = useApp((s) => s.addCustomer);
   const upsertProductMaster = useApp((s) => s.upsertProductMaster);
+  const invoices = useApp((s) => s.invoices);
+  const quotations = useApp((s) => s.quotations);
 
   const [q, setQ] = useState<Quotation>(initial);
-  const [saveAsCustomer, setSaveAsCustomer] = useState(false);
+  const [saveAsCustomer, setSaveAsCustomer] = useState(true);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
@@ -150,6 +152,36 @@ export function QuotationEditor({
 
   const totals = useMemo(() => computeTotals(q as unknown as Invoice), [q]);
   const activeProducts = settings.productMaster.filter((p) => p.active);
+
+  const hsnHistory = useMemo(() => {
+    const seen = new Set<string>();
+    const list: string[] = [];
+    for (const inv of invoices) {
+      for (const it of inv.items) {
+        if (it.hsn && !seen.has(it.hsn)) {
+          seen.add(it.hsn);
+          list.push(it.hsn);
+        }
+      }
+    }
+    for (const quot of quotations) {
+      for (const it of quot.items) {
+        if (it.hsn && !seen.has(it.hsn)) {
+          seen.add(it.hsn);
+          list.push(it.hsn);
+        }
+      }
+    }
+    return list;
+  }, [invoices, quotations]);
+
+  function getAvailableStock(description: string): number | null {
+    const p = activeProducts.find((x) => x.description === description);
+    if (!p) return null;
+    return inventoryStock
+      .filter((s) => s.productId === p.id)
+      .reduce((sum, s) => sum + s.quantity, 0);
+  }
 
   const handleCameraScan = (barcode: string) => {
     if (isLocked) {
@@ -277,16 +309,24 @@ export function QuotationEditor({
       }
     }
     if (saveAsCustomer && final.customer.name.trim()) {
-      const id = newId();
-      const c = { ...final.customer, id };
-      addCustomer(c);
-      final = { ...final, customer: c };
+      const existing = customers.find((c) => 
+        c.name.trim().toLowerCase() === final.customer.name.trim().toLowerCase() &&
+        (c.phone || "") === (final.customer.phone || "")
+      );
+      if (existing) {
+        final = { ...final, customer: existing };
+      } else {
+        const id = newId();
+        const c = { ...final.customer, id };
+        addCustomer(c);
+        final = { ...final, customer: c };
+      }
+      setSaveAsCustomer(false);
     }
-    saveQuotation(final);
     return final;
   }
 
-  function handleSave(asDraft = false) {
+  async function handleSave(asDraft = false) {
     if (isLocked) return;
     if (!q.customer.name.trim()) {
       toast.error("Customer name is required");
@@ -296,11 +336,18 @@ export function QuotationEditor({
       const initialNum = `${settings.quotationPrefix}-${String(settings.nextQuotationNumber).padStart(settings.quotationDigits || 4, "0")}`;
       if (q.number === initialNum) consumeQuotationNumber();
     }
-    const final = ensureSaved({ isDraft: asDraft });
-    if (asDraft) setDraftSavedAt(Date.now());
-    else toast.success("Quotation saved");
-    if (mode === "create") {
-      navigate({ to: "/quotations/$id", params: { id: final.id } });
+    try {
+      const final = ensureSaved({ isDraft: asDraft });
+      await cloud.upsertQuotation(final);
+      saveQuotation(final);
+      setQ(final);
+      if (asDraft) setDraftSavedAt(Date.now());
+      else toast.success("Quotation saved");
+      if (mode === "create") {
+        navigate({ to: "/quotations/$id", params: { id: final.id } });
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save quotation");
     }
   }
 
@@ -321,7 +368,15 @@ export function QuotationEditor({
         const initialNum = `${settings.quotationPrefix}-${String(settings.nextQuotationNumber).padStart(settings.quotationDigits || 4, "0")}`;
         if (q.number === initialNum) consumeQuotationNumber();
       }
-      final = ensureSaved({ isDraft: false });
+      try {
+        final = ensureSaved({ isDraft: false });
+        await cloud.upsertQuotation(final);
+        saveQuotation(final);
+        setQ(final);
+      } catch (e: any) {
+        toast.error(e.message || "Failed to save quotation before exporting");
+        return;
+      }
     }
     await downloadQuotationPdf(final);
     if (mode === "create") navigate({ to: "/quotations/$id", params: { id: final.id } });
@@ -338,7 +393,15 @@ export function QuotationEditor({
         const initialNum = `${settings.quotationPrefix}-${String(settings.nextQuotationNumber).padStart(settings.quotationDigits || 4, "0")}`;
         if (q.number === initialNum) consumeQuotationNumber();
       }
-      final = ensureSaved({ isDraft: false });
+      try {
+        final = ensureSaved({ isDraft: false });
+        await cloud.upsertQuotation(final);
+        saveQuotation(final);
+        setQ(final);
+      } catch (e: any) {
+        toast.error(e.message || "Failed to save quotation before printing");
+        return;
+      }
     }
     await printQuotationPdf(final);
     if (mode === "create") navigate({ to: "/quotations/$id", params: { id: final.id } });
@@ -732,9 +795,21 @@ export function QuotationEditor({
                         ))}
                       </SelectContent>
                     </Select>
+                    {(() => {
+                      if (!it.description) return null;
+                      const avail = getAvailableStock(it.description);
+                      if (avail === null) return null;
+                      const isOutOfStock = avail <= 0;
+                      return (
+                        <div className={`text-[10px] mt-1 font-medium ${isOutOfStock ? "text-destructive" : "text-emerald-600"}`}>
+                          {isOutOfStock ? "OUT OF STOCK" : `Available: ${avail}`}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-2 py-1">
                     <Input
+                      list="quotation-hsn-history-list"
                       value={it.hsn}
                       disabled={isLocked}
                       onChange={(e) => updateItem(it.id, { hsn: e.target.value })}
@@ -770,7 +845,7 @@ export function QuotationEditor({
                     />
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">
-                    {formatINR(lineTotal(it))}
+                    {formatINR(lineSubtotal(it))}
                   </td>
                   <td className="px-2 py-1">
                     <Button
@@ -965,6 +1040,12 @@ export function QuotationEditor({
           />
         </div>
       </div>
+
+      <datalist id="quotation-hsn-history-list">
+        {hsnHistory.map((h) => (
+          <option key={h} value={h} />
+        ))}
+      </datalist>
     </div>
   );
 }

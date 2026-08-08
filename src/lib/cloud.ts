@@ -75,6 +75,7 @@ export function productToRow(p: ProductMasterEntry, userId: string) {
     qr_value: p.qrValue ?? null,
     active: p.active ?? true,
     item_type: p.itemType ?? null,
+    brand_name: p.brandName ?? null,
     // Legacy fields preserved for backward compat
     hsn: p.hsn ?? null,
     gst_percent: p.gstPercent != null ? p.gstPercent : 18,

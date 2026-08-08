@@ -711,12 +711,31 @@ function InventoryPage() {
                       </td>
                     </tr>
                   ) : (
-                    stockView.map((row, i) => {
-                      const isExpanded = expandedRows.has(row.id || String(i));
-                      const hasDetails = row.supplier !== "-" || row.finish !== "-" || row.thread !== "-" || row.purchaseRate || row.customField1 || row.customField2 || row.customField3;
-                      return (
-                        <Fragment key={row.id || String(i)}>
-                          <tr className={["hover:bg-muted/20 transition-colors", selectedStockIds.has(row.id as string) ? "bg-muted/60" : ""].join(" ")}>
+                    (() => {
+                      let lastDate = "";
+                      return stockView.map((row, i) => {
+                        const isExpanded = expandedRows.has(row.id || String(i));
+                        const hasDetails = row.supplier !== "-" || row.finish !== "-" || row.thread !== "-" || row.purchaseRate || row.customField1 || row.customField2 || row.customField3;
+                        
+                        const rowDate = row.updatedAt 
+                          ? new Date(row.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                          : "Unknown Date";
+                          
+                        const showDateHeader = rowDate !== lastDate;
+                        if (showDateHeader) {
+                          lastDate = rowDate;
+                        }
+
+                        return (
+                          <Fragment key={row.id || String(i)}>
+                            {showDateHeader && (
+                              <tr className="bg-muted/30">
+                                <td colSpan={10} className="px-3 py-2 sm:px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                  {rowDate}
+                                </td>
+                              </tr>
+                            )}
+                            <tr className={["hover:bg-muted/20 transition-colors", selectedStockIds.has(row.id as string) ? "bg-muted/60" : ""].join(" ")}>
                             <td className="px-3 py-2.5 sm:px-4 sm:py-3">
                               <input
                                 type="checkbox"
@@ -867,8 +886,9 @@ function InventoryPage() {
                           )}
                         </Fragment>
                       );
-                    })
-                  )}
+                    });
+                  })()
+                )}
                 </tbody>
               </table>
             </div>

@@ -12,6 +12,7 @@ import { AppShell } from "@/components/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductMasterManager } from "@/components/inventory/ProductMasterManager";
 import { WarehouseManager } from "@/components/inventory/WarehouseManager";
+import { StockImportDialog } from "@/components/inventory/StockImportDialog";
 import { Pencil } from "lucide-react";
 import { printProductLabel, downloadProductLabel } from "@/components/ProductLabelPdf";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -97,6 +98,7 @@ function InventoryPage() {
 
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [exportType, setExportType] = useState<"PRODUCT_MASTER" | "FLAT_STOCK" | "PIVOT">("PIVOT");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<string>("ledger");
@@ -442,6 +444,10 @@ function InventoryPage() {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button variant="outline" onClick={() => setImportDialogOpen(true)} className="gap-2 w-full sm:w-auto">
+                  <Download className="w-4 h-4 rotate-180" />
+                  Import Excel
+                </Button>
                 <Button variant="outline" onClick={() => setExportDialogOpen(true)} className="gap-2 w-full sm:w-auto">
                   <Download className="w-4 h-4" />
                   Export Report
@@ -992,6 +998,11 @@ function InventoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <StockImportDialog 
+        open={importDialogOpen} 
+        onOpenChange={setImportDialogOpen} 
+        onSuccess={() => setImportDialogOpen(false)} 
+      />
     </AppShell>
   );
 }

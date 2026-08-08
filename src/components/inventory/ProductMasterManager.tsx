@@ -55,51 +55,6 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<ProductMasterEntry | null>(null);
   const [deleteBlockedMsg, setDeleteBlockedMsg] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  function handleImportExcel(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: "binary" });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws) as any[];
-
-        let importedCount = 0;
-        data.forEach((row) => {
-          if (!row.SKU && !row.Description) return;
-          const sku = String(row.SKU || "").trim();
-          const desc = String(row.Description || "").trim();
-          if (!desc) return; // Description is mandatory
-
-          upsertProduct({
-            sku,
-            description: desc,
-            hsn: row.HSN ? String(row.HSN).trim() : undefined,
-            brandName: row["Brand Name"] ? String(row["Brand Name"]).trim() : undefined,
-            barcodeValue: sku,
-            qrValue: sku,
-            active: String(row.Status).toLowerCase() !== "inactive",
-            itemType: row["Item Type"] ? String(row["Item Type"]).trim() : "Bolt Nut",
-          });
-          importedCount++;
-        });
-
-        toast.success(`Successfully imported ${importedCount} products from Excel.`);
-      } catch (err) {
-        console.error(err);
-        toast.error("Failed to parse Excel file.");
-      }
-      // Reset input
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    };
-    reader.readAsBinaryString(file);
-  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -241,23 +196,6 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
             </p>
           </div>
           <div className="flex gap-2">
-            <input
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              ref={fileInputRef}
-              className="hidden"
-              onChange={handleImportExcel}
-            />
-            <a href="/sample-inventory.xlsx" download="sample-inventory.xlsx" tabIndex={-1}>
-              <Button variant="outline" className="gap-2">
-                <Download className="h-4 w-4" />
-                Sample
-              </Button>
-            </a>
-            <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2">
-              <Download className="h-4 w-4 rotate-180" />
-              Import Excel
-            </Button>
             <Button onClick={() => setEditing(emptyProduct())} className="gap-2">
               <Plus className="h-4 w-4" />
               Add Product

@@ -183,6 +183,17 @@ export function QuotationEditor({
       .reduce((sum, s) => sum + s.quantity, 0);
   }
 
+  const sortedActiveProducts = useMemo(() => {
+    return activeProducts.map(p => {
+       const avail = getAvailableStock(p.description) || 0;
+       return { p, avail };
+    }).sort((a, b) => {
+       if (a.avail > 0 && b.avail <= 0) return -1;
+       if (a.avail <= 0 && b.avail > 0) return 1;
+       return a.p.description.localeCompare(b.p.description);
+    });
+  }, [activeProducts, inventoryStock]);
+
   const handleCameraScan = (barcode: string) => {
     if (isLocked) {
       toast.error("Cannot scan products into a locked quotation.");
@@ -788,10 +799,10 @@ export function QuotationEditor({
                         <SelectValue placeholder="Select Product" />
                       </SelectTrigger>
                       <SelectContent>
-                        {activeProducts.map((p) => (
-                           <SelectItem key={p.id} value={p.description}>
-                             {p.description} {p.sku ? `(${p.sku})` : ""}
-                           </SelectItem>
+                        {sortedActiveProducts.map(({ p, avail }) => (
+                          <SelectItem key={p.id} value={p.description}>
+                            {p.description} {p.sku ? `(${p.sku})` : ""} {avail > 0 ? `- Stock: ${avail}` : `- Out of stock`}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

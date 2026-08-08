@@ -189,6 +189,17 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
     });
   }, [inv.items, activeProducts, inventoryStock, inv.dispatchWarehouseId, inv.dispatchLocationId]);
 
+  const sortedActiveProducts = useMemo(() => {
+    return activeProducts.map(p => {
+       const avail = getAvailableStock(p.description) || 0;
+       return { p, avail };
+    }).sort((a, b) => {
+       if (a.avail > 0 && b.avail <= 0) return -1;
+       if (a.avail <= 0 && b.avail > 0) return 1;
+       return a.p.description.localeCompare(b.p.description);
+    });
+  }, [activeProducts, inventoryStock, inv.dispatchWarehouseId, inv.dispatchLocationId]);
+
   // Apply a specific inventory batch to an invoice item
   function applyBatchToItem(itemId: string, batch: InventoryStock) {
     const wh = warehouses.find(w => w.id === batch.warehouseId);
@@ -992,9 +1003,9 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                         <SelectValue placeholder="Select Product" />
                       </SelectTrigger>
                       <SelectContent>
-                        {activeProducts.map((p) => (
+                        {sortedActiveProducts.map(({ p, avail }) => (
                            <SelectItem key={p.id} value={p.description}>
-                             {p.description} {p.sku ? `(${p.sku})` : ""}
+                             {p.description} {p.sku ? `(${p.sku})` : ""} {avail > 0 ? `- Stock: ${avail}` : `- Out of stock`}
                            </SelectItem>
                         ))}
                       </SelectContent>

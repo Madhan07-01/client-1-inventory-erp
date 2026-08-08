@@ -608,7 +608,7 @@ export const cloud = {
     const userId = await currentUserId();
     const { error } = await supabase
       .from("inventory_stock")
-      .upsert(stockToRow(s, userId), { onConflict: "user_id, product_id, warehouse_id, location_id" });
+      .upsert(stockToRow(s, userId), { onConflict: "id" });
     if (error) throw error;
   },
 

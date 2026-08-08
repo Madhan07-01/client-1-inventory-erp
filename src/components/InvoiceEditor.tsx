@@ -993,15 +993,17 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                   <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
                   <td className="px-2 py-1">
                     <Select
-                      value={it.stockBatchId ? `VAR::${it.description}::${it.stockBatchId}` : (it.description || undefined)}
+                      value={it.description || undefined}
                       onValueChange={(val) => {
-                        if (val.startsWith("VAR::")) {
-                          const [, desc, batchId] = val.split("::");
-                          updateItem(it.id, { description: desc, stockBatchId: batchId });
-                          applyProductByDescription(it.id, desc, batchId);
-                        } else {
-                          updateItem(it.id, { description: val, stockBatchId: undefined });
-                          applyProductByDescription(it.id, val);
+                        updateItem(it.id, { description: val, stockBatchId: undefined });
+                        applyProductByDescription(it.id, val);
+                        const match = activeProducts.find(p => p.description === val);
+                        if (match) {
+                           const batches = getBatchesForProduct(match.id);
+                           if (batches.length > 1) {
+                              setBatchPickerItemId(it.id);
+                              setBatchPickerProductId(match.id);
+                           }
                         }
                       }}
                     >
@@ -1009,21 +1011,11 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                         <SelectValue placeholder="Select Product" />
                       </SelectTrigger>
                       <SelectContent>
-                        {sortedActiveProducts.map(({ p, avail }) => {
-                          const batches = getBatchesForProduct(p.id);
-                          return (
-                            <Fragment key={p.id}>
-                              <SelectItem value={p.description}>
-                                {p.description} {p.sku ? `(${p.sku})` : ""} {avail > 0 ? `- Stock: ${avail}` : `- Out of stock`}
-                              </SelectItem>
-                              {batches.map(b => (
-                                <SelectItem key={b.id} value={`VAR::${p.description}::${b.id}`} className="pl-6 text-muted-foreground text-sm">
-                                  {`${p.description} > ${batchLabel(b)}`}
-                                </SelectItem>
-                              ))}
-                            </Fragment>
-                          );
-                        })}
+                        {sortedActiveProducts.map(({ p, avail }) => (
+                           <SelectItem key={p.id} value={p.description}>
+                             {p.description} {p.sku ? `(${p.sku})` : ""} {avail > 0 ? `- Stock: ${avail}` : `- Out of stock`}
+                           </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     {(() => {
@@ -1033,40 +1025,21 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                       const isOutOfStock = avail <= 0;
                       
                       let batchInfo = null;
-                      const match = activeProducts.find(p => p.description === it.description);
-                      
-                      if (match && !isOutOfStock) {
-                        const batches = getBatchesForProduct(match.id);
-                        if (batches.length > 0) {
-                          batchInfo = (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {batches.map(b => {
-                                const isSelected = it.stockBatchId === b.id;
-                                return (
-                                  <button
-                                    key={b.id}
-                                    type="button"
-                                    onClick={() => applyBatchToItem(it.id, b)}
-                                    className={`px-1.5 py-0.5 rounded text-[9px] border text-left leading-tight ${
-                                      isSelected 
-                                        ? 'bg-primary text-primary-foreground border-primary' 
-                                        : 'bg-background text-muted-foreground border-input hover:bg-accent hover:text-accent-foreground'
-                                    }`}
-                                  >
-                                    {batchLabel(b)}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          );
-                        }
+                      if (it.stockBatchId) {
+                         const b = inventoryStock.find(s => s.id === it.stockBatchId);
+                         if (b) {
+                           batchInfo = <span className="text-muted-foreground ml-2">(Allocated: {b.lotNo ? `Lot ${b.lotNo}` : b.warehouseId}) <button type="button" onClick={() => { setBatchPickerItemId(it.id); setBatchPickerProductId(b.productId); }} className="text-blue-500 hover:underline ml-1">Change Variant</button></span>;
+                         }
+                      } else if (!isOutOfStock) {
+                         const match = activeProducts.find(p => p.description === it.description);
+                         if (match) {
+                            batchInfo = <button type="button" onClick={() => { setBatchPickerItemId(it.id); setBatchPickerProductId(match.id); }} className="text-blue-500 hover:underline ml-2">Select Variant</button>;
+                         }
                       }
 
                       return (
-                        <div className="flex flex-col mt-1">
-                          <div className={`text-[10px] font-medium ${isOutOfStock ? "text-destructive" : "text-emerald-600"} flex items-center`}>
-                            <span>Available: {avail} Units</span>
-                          </div>
+                        <div className={`text-[10px] mt-1 font-medium ${isOutOfStock ? "text-destructive" : "text-emerald-600"} flex items-center`}>
+                          <span>Available: {avail} Units</span>
                           {batchInfo}
                         </div>
                       );

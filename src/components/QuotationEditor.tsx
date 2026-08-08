@@ -13,7 +13,14 @@ import {
   FileText,
   Check,
   ArrowRightCircle,
+  Layers,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -145,6 +152,8 @@ export function QuotationEditor({
   const [q, setQ] = useState<Quotation>(initial);
   const [saveAsCustomer, setSaveAsCustomer] = useState(true);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [batchPickerItemId, setBatchPickerItemId] = useState<string | null>(null);
+  const [batchPickerProductId, setBatchPickerProductId] = useState<string | null>(null);
 
   useEffect(() => {
     setQ(initial);
@@ -181,14 +190,24 @@ export function QuotationEditor({
     );
   }
 
-  function batchLabel(batch: any): string {
-    const parts: string[] = [];
-    if (batch.size) parts.push(`Size: ${batch.size}`);
-    if (batch.grade) parts.push(`Grade: ${batch.grade}`);
-    if (batch.finish) parts.push(`Finish: ${batch.finish}`);
-    if (batch.thread) parts.push(`Thread: ${batch.thread}`);
-    if (batch.lotNo) parts.push(`Lot: ${batch.lotNo}`);
-    return `${parts.join(" · ")} | Qty: ${batch.quantity}`;
+  function batchLabel(b: any) {
+    const parts = [];
+    if (b.size) parts.push(`Size: ${b.size}`);
+    if (b.grade) parts.push(`Grade: ${b.grade}`);
+    if (b.finish) parts.push(`Finish: ${b.finish}`);
+    if (b.thread) parts.push(`Thread: ${b.thread}`);
+    if (b.lotNo) parts.push(`Lot: ${b.lotNo}`);
+    const wh = settings.warehouses.find(w => w.id === b.warehouseId)?.name || b.warehouseId;
+    if (wh) parts.push(`WH: ${wh}`);
+    if (b.location) parts.push(`Loc: ${b.location}`);
+    if (b.quantity != null) parts.push(`Qty: ${b.quantity}`);
+    return parts.join(" · ") || "Standard Variant";
+  }
+
+  function applyBatchToItem(itemId: string, batch: any) {
+    updateItem(itemId, { stockBatchId: batch.id });
+    setBatchPickerItemId(null);
+    setBatchPickerProductId(null);
   }
 
   function getAvailableStock(description: string): number | null {
@@ -806,15 +825,17 @@ export function QuotationEditor({
                   <td className="px-2 py-1">
                     <Select
                       disabled={isLocked}
-                      value={it.stockBatchId ? `VAR::${it.description}::${it.stockBatchId}` : (it.description || undefined)}
+                      value={it.description || undefined}
                       onValueChange={(val) => {
-                        if (val.startsWith("VAR::")) {
-                          const [, desc, batchId] = val.split("::");
-                          updateItem(it.id, { description: desc, stockBatchId: batchId });
-                          applyProductByDescription(it.id, desc, batchId);
-                        } else {
-                          updateItem(it.id, { description: val, stockBatchId: undefined });
-                          applyProductByDescription(it.id, val);
+                        updateItem(it.id, { description: val, stockBatchId: undefined });
+                        applyProductByDescription(it.id, val);
+                        const match = activeProducts.find(p => p.description === val);
+                        if (match) {
+                           const batches = getBatchesForProduct(match.id);
+                           if (batches.length > 1) {
+                              setBatchPickerItemId(it.id);
+                              setBatchPickerProductId(match.id);
+                           }
                         }
                       }}
                     >
@@ -822,21 +843,11 @@ export function QuotationEditor({
                         <SelectValue placeholder="Select Product" />
                       </SelectTrigger>
                       <SelectContent>
-                        {sortedActiveProducts.map(({ p, avail }) => {
-                          const batches = getBatchesForProduct(p.id);
-                          return (
-                            <Fragment key={p.id}>
-                              <SelectItem value={p.description}>
-                                {p.description} {p.sku ? `(${p.sku})` : ""} {avail > 0 ? `- Stock: ${avail}` : `- Out of stock`}
-                              </SelectItem>
-                              {batches.map(b => (
-                                <SelectItem key={b.id} value={`VAR::${p.description}::${b.id}`} className="pl-6 text-muted-foreground text-sm">
-                                  {`${p.description} > ${batchLabel(b)}`}
-                                </SelectItem>
-                              ))}
-                            </Fragment>
-                          );
-                        })}
+                        {sortedActiveProducts.map(({ p, avail }) => (
+                           <SelectItem key={p.id} value={p.description}>
+                             {p.description} {p.sku ? `(${p.sku})` : ""} {avail > 0 ? `- Stock: ${avail}` : `- Out of stock`}
+                           </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     {(() => {
@@ -846,30 +857,21 @@ export function QuotationEditor({
                       const isOutOfStock = avail <= 0;
 
                       let batchInfo = null;
-                      const match = activeProducts.find(p => p.description === it.description);
-                      if (match && !isOutOfStock) {
-                        const batches = getBatchesForProduct(match.id);
-                        if (batches.length > 0) {
-                          batchInfo = (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {batches.map(b => (
-                                <span
-                                  key={b.id}
-                                  className="px-1.5 py-0.5 rounded text-[9px] border text-left leading-tight bg-background text-muted-foreground border-input"
-                                >
-                                  {batchLabel(b)}
-                                </span>
-                              ))}
-                            </div>
-                          );
-                        }
+                      if (it.stockBatchId) {
+                         const b = inventoryStock.find(s => s.id === it.stockBatchId);
+                         if (b) {
+                           batchInfo = <span className="text-muted-foreground ml-2">(Allocated: {b.lotNo ? `Lot ${b.lotNo}` : b.warehouseId}) <button type="button" onClick={() => { setBatchPickerItemId(it.id); setBatchPickerProductId(b.productId); }} className="text-blue-500 hover:underline ml-1">Change Variant</button></span>;
+                         }
+                      } else if (!isOutOfStock) {
+                         const match = activeProducts.find(p => p.description === it.description);
+                         if (match) {
+                            batchInfo = <button type="button" onClick={() => { setBatchPickerItemId(it.id); setBatchPickerProductId(match.id); }} className="text-blue-500 hover:underline ml-2">Select Variant</button>;
+                         }
                       }
 
                       return (
-                        <div className="flex flex-col mt-1">
-                          <div className={`text-[10px] font-medium ${isOutOfStock ? "text-destructive" : "text-emerald-600"} flex items-center`}>
-                            {isOutOfStock ? "OUT OF STOCK" : `Available: ${avail} Units`}
-                          </div>
+                        <div className={`text-[10px] mt-1 font-medium ${isOutOfStock ? "text-destructive" : "text-emerald-600"} flex items-center`}>
+                          <span>{isOutOfStock ? "OUT OF STOCK" : `Available: ${avail} Units`}</span>
                           {batchInfo}
                         </div>
                       );
@@ -955,6 +957,46 @@ export function QuotationEditor({
           </datalist>
         </div>
       </div>
+
+      {/* Batch Picker Dialog */}
+      <Dialog open={!!batchPickerItemId} onOpenChange={(open) => { if (!open) { setBatchPickerItemId(null); setBatchPickerProductId(null); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5" />
+              Select Inventory Batch
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Choose which stock batch to reference for this quotation line item:</p>
+            {batchPickerProductId && getBatchesForProduct(batchPickerProductId).length === 0 ? (
+              <p className="text-sm text-destructive">No available batches found for this product.</p>
+            ) : (
+              <div className="divide-y border rounded-md overflow-hidden">
+                {batchPickerProductId && getBatchesForProduct(batchPickerProductId).map((batch) => (
+                  <button
+                    key={batch.id}
+                    className="w-full text-left px-4 py-3 hover:bg-muted/40 transition-colors text-sm"
+                    onClick={() => batchPickerItemId && applyBatchToItem(batchPickerItemId, batch)}
+                  >
+                    <div className="font-medium">{batchLabel(batch)}</div>
+                    {(batch.supplier || batch.purchaseRate || batch.purchaseDate) && (
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {batch.supplier && `Supplier: ${batch.supplier}`}
+                        {batch.purchaseRate && ` · Rate: ₹${batch.purchaseRate}`}
+                        {batch.purchaseDate && ` · Date: ${batch.purchaseDate}`}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-between pt-2">
+              <Button variant="ghost" size="sm" onClick={() => { setBatchPickerItemId(null); setBatchPickerProductId(null); }}>Skip (no batch)</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Tax Details */}
       <div className="rounded-lg border bg-white overflow-hidden">

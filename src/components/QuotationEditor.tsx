@@ -175,6 +175,22 @@ export function QuotationEditor({
     return list;
   }, [invoices, quotations]);
 
+  function getBatchesForProduct(productId: string) {
+    return inventoryStock.filter(
+      (s) => s.productId === productId && s.quantity > 0
+    );
+  }
+
+  function batchLabel(batch: any): string {
+    const parts: string[] = [];
+    if (batch.size) parts.push(`Size: ${batch.size}`);
+    if (batch.grade) parts.push(`Grade: ${batch.grade}`);
+    if (batch.finish) parts.push(`Finish: ${batch.finish}`);
+    if (batch.thread) parts.push(`Thread: ${batch.thread}`);
+    if (batch.lotNo) parts.push(`Lot: ${batch.lotNo}`);
+    return `${parts.join(" · ")} | Qty: ${batch.quantity}`;
+  }
+
   function getAvailableStock(description: string): number | null {
     const p = activeProducts.find((x) => x.description === description);
     if (!p) return null;
@@ -811,9 +827,33 @@ export function QuotationEditor({
                       const avail = getAvailableStock(it.description);
                       if (avail === null) return null;
                       const isOutOfStock = avail <= 0;
+
+                      let batchInfo = null;
+                      const match = activeProducts.find(p => p.description === it.description);
+                      if (match && !isOutOfStock) {
+                        const batches = getBatchesForProduct(match.id);
+                        if (batches.length > 0) {
+                          batchInfo = (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {batches.map(b => (
+                                <span
+                                  key={b.id}
+                                  className="px-1.5 py-0.5 rounded text-[9px] border text-left leading-tight bg-background text-muted-foreground border-input"
+                                >
+                                  {batchLabel(b)}
+                                </span>
+                              ))}
+                            </div>
+                          );
+                        }
+                      }
+
                       return (
-                        <div className={`text-[10px] mt-1 font-medium ${isOutOfStock ? "text-destructive" : "text-emerald-600"}`}>
-                          {isOutOfStock ? "OUT OF STOCK" : `Available: ${avail}`}
+                        <div className="flex flex-col mt-1">
+                          <div className={`text-[10px] font-medium ${isOutOfStock ? "text-destructive" : "text-emerald-600"} flex items-center`}>
+                            {isOutOfStock ? "OUT OF STOCK" : `Available: ${avail} Units`}
+                          </div>
+                          {batchInfo}
                         </div>
                       );
                     })()}

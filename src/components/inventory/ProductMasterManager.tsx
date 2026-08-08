@@ -248,6 +248,12 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
               className="hidden"
               onChange={handleImportExcel}
             />
+            <a href="/sample-inventory.xlsx" download="sample-inventory.xlsx" tabIndex={-1}>
+              <Button variant="outline" className="gap-2">
+                <Download className="h-4 w-4" />
+                Sample
+              </Button>
+            </a>
             <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2">
               <Download className="h-4 w-4 rotate-180" />
               Import Excel

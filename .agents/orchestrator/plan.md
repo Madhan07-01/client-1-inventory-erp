@@ -1,25 +1,35 @@
-# Execution Plan: Inventory Validation System (R1-R6)
+# Execution Plan: ProductLabelPdf CSS Print Styles Update
 
-## Milestone 1: Exploration & Codebase Analysis
-- **Goal**: Thoroughly inspect `InvoiceEditor.tsx`, `invoices.index.tsx`, `store.ts`, Supabase setup, print/PDF generation code, product listing & search logic.
-- **Worker**: `teamwork_preview_explorer` (Explorer 1)
-- **Output**: `e:\Client 1\.agents\explorer_1\analysis.md` and `handoff.md` mapping out data structures, current stock handling, save/print triggers, and exact touch points for R1-R6.
+## Overview
+Update `ProductLabelPdf.tsx` CSS print styles to automatically apply layout, margins (Top 0.33", Left 0.11", Right 0.13", Bottom 0.46"), and 80% scaling, ensuring labels print correctly on any paper size without manual print dialog adjustments.
 
-## Milestone 2: Stock Badges & Search UI (R1 & R5)
-- **Goal**: Add stock availability badges ("In Stock" green, "Low Stock" orange <=10, "Out of Stock" red 0) in product search/dropdowns. Display live available stock when product is selected in Invoice Editor.
-- **Worker**: `teamwork_preview_worker` (Implementer 1)
-- **Reviewer**: `teamwork_preview_reviewer` (Reviewer 1)
+## Requirements
+- **R1. Default Print Configuration**:
+  - `@page { margin: 0.33in 0.13in 0.46in 0.11in; }` (Top 0.33", Right 0.13", Bottom 0.46", Left 0.11")
+  - Scale label dimensions by 80% (either via CSS `transform: scale(0.8)` / `transform-origin` or direct dimension math).
+- **R2. Flexible Paper Size Stacking**:
+  - Ensure multiple labels stack vertically in a natural sequence with a standard small gap when printed on larger sheets (e.g. 4x6in).
 
-## Milestone 3: Out-of-Stock Prevention & Live Quantity Validation (R2 & R3)
-- **Goal**: Prevent adding 0-stock products with warning toast/dialog. Live validate quantity typing (cap input at available stock, red border on field, inline error message). Disable "Save Invoice", "Print Invoice", and PDF export while quantity is invalid or stock unavailable.
-- **Worker**: `teamwork_preview_worker` (Implementer 2)
-- **Reviewer**: `teamwork_preview_reviewer` (Reviewer 2)
+## Phased Approach
 
-## Milestone 4: Final Pre-Save/Print Validation & Database Safety (R4 & R6)
-- **Goal**: Perform network check against Supabase immediately before saving/printing. Abort save and show error dialog if stock changed concurrently. Ensure stock is deducted ONLY after successful invoice save. Guarantee no negative stock and preserve historical invoices.
-- **Worker**: `teamwork_preview_worker` (Implementer 3)
-- **Reviewer**: `teamwork_preview_reviewer` (Reviewer 3)
+### Phase 1: Investigation & Analysis (Explorer)
+- Dispatch `teamwork_preview_explorer` to inspect `src/components/ProductLabelPdf.tsx` and related print handling files or test suites.
+- Analyze current `buildLabelHtml` implementation, CSS styles, `@page` directives, label container rules, and stacking behaviour.
 
-## Milestone 5: Verification, Challenger Testing & Forensic Audit
-- **Goal**: Full E2E validation of R1-R6 acceptance criteria. Run build & test checks. Execute empirical challenge & forensic audit against cheating/facade implementations.
-- **Workers**: `teamwork_preview_challenger`, `teamwork_preview_auditor`
+### Phase 2: Implementation (Worker)
+- Dispatch `teamwork_preview_worker` to update `buildLabelHtml` CSS in `src/components/ProductLabelPdf.tsx`.
+- Apply `@page { margin: 0.33in 0.13in 0.46in 0.11in; }`.
+- Apply 80% scaling to label dimensions.
+- Ensure CSS allows vertical stacking with standard small gap between labels when printed on larger paper sizes.
+- Run build and unit/integration tests to verify.
+
+### Phase 3: Review & Empirical Verification (Reviewer + Challenger)
+- Dispatch 2 `teamwork_preview_reviewer` subagents to perform static code analysis and test output verification.
+- Dispatch 2 `teamwork_preview_challenger` subagents to run tests and verify rendering / HTML / CSS compliance.
+
+### Phase 4: Forensic Audit (Auditor)
+- Dispatch `teamwork_preview_auditor` for integrity verification.
+
+### Phase 5: Synthesis & Reporting
+- Synthesize all verdicts into `GATE_STATUS.md`.
+- Report final outcome to parent.

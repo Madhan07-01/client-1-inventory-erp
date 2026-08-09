@@ -1,42 +1,35 @@
-# Project: Madeena Traders ERP - Save as Draft Feature
+# Project: Product Label PDF CSS Print Styling Update
 
 ## Architecture
 
-This project implements the "Save as Draft" feature for the Invoice module in the Madeena Traders ERP.
-The system consists of:
+This project updates the CSS print styles in `src/components/ProductLabelPdf.tsx` for Madeena Traders ERP.
+The system generates HTML/CSS for product labels and renders/prints them.
 
-- **State Store (Zustand)**: `src/lib/store.ts` manages the application state including invoices, inventory, and warehouses. It handles invoice save/delete actions and inventory adjustments.
-- **Form Component (React)**: `src/components/InvoiceEditor.tsx` handles creating and editing invoices, generating invoice numbers, and saving drafts or finalized invoices.
-- **Invoices Listing Page**: `src/routes/_authenticated/invoices.index.tsx` displays the list of invoices in a table and provides toggles for filtering.
-- **Dashboard Page**: `src/routes/_authenticated/index.tsx` calculates and displays key business metrics (revenue, total invoices, GST).
+- **Component**: `src/components/ProductLabelPdf.tsx` contains `buildLabelHtml` which constructs the HTML and embedded CSS for printing product labels.
+- **CSS @page Rules**: Defines page margins (`margin: 0.33in 0.13in 0.46in 0.11in;`) for automated printer layout.
+- **Scaling & Stacking**: Applies 80% visual scaling to label dimensions and ensures vertical label stacking with a small gap when printing multiple labels on larger paper sheets.
 
-## Code Layout
+## Feature Inventory
 
-- `src/lib/types.ts`: Domain models and interface definitions (including `Invoice`).
-- `src/lib/store.ts`: Global state store and mutations (Zustand).
-- `src/lib/cloud.ts`: Supabase database mapping and synchronization.
-- `src/components/InvoiceEditor.tsx`: Shared UI form for invoice creation and editing.
-- `src/routes/_authenticated/invoices.index.tsx`: Invoices management list page.
-- `src/routes/_authenticated/index.tsx`: Main dashboard and analytics view.
-- `tests/`: End-to-End Playwright tests.
+| # | Feature | Description | Milestone | Source |
+|---|---------|-------------|-----------|--------|
+| 1 | Custom @page Margins | Enforce @page { margin: 0.33in 0.13in 0.46in 0.11in; } in buildLabelHtml | M1 | ORIGINAL_REQUEST.md §R1 |
+| 2 | 80% Label Scaling | Scale label dimensions by 80% (via 2.4in x 1.6in scaled dimensions and font/QR scaling) | M1 | ORIGINAL_REQUEST.md §R1 |
+| 3 | Flexible Paper Size Stacking | Ensure multiple labels stack vertically with a standard small gap | M1 | ORIGINAL_REQUEST.md §R2 |
 
 ## Milestones
 
-| #   | Name                                               | Scope                                                                                                                          | Dependencies | Status  |
-| --- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------ | ------- |
-| 1   | Test Track: E2E Test Suite                         | Create Playwright E2E tests covering all 4 tiers in `tests/` and publish `TEST_READY.md`                                       | None         | DONE    |
-| 2   | Implementation Track: Zustand Store Adjustments    | Update `saveInvoice` and `deleteInvoice` in `src/lib/store.ts` to exclude drafts from inventory stock changes                  | None         | PLANNED |
-| 3   | Implementation Track: Invoice Editor Form Updates  | Update `src/components/InvoiceEditor.tsx` to handle "Save Draft" with `isDraft: true`, consume invoice number, and redirect    | M2           | PLANNED |
-| 4   | Implementation Track: List Filter & Toggle & Badge | Add "Show drafts" checkbox, filter list by default, and render "Draft" badge in `src/routes/_authenticated/invoices.index.tsx` | M3           | PLANNED |
-| 5   | Implementation Track: Dashboard Metrics Filtering  | Exclude draft invoices from dashboard statistics and recent table in `src/routes/_authenticated/index.tsx`                     | M4           | PLANNED |
-| 6   | Verification Milestone                             | Run full E2E test suite (Tiers 1-4) on the implementation and complete Forensic Auditing                                       | M1, M5       | PLANNED |
-| 7   | Adversarial Hardening (Tier 5)                     | Perform white-box gap analysis, generate adversarial tests, and fix any edge cases                                             | M6           | PLANNED |
+| # | Name | Scope | Dependencies | Status |
+|---|------|-------|-------------|--------|
+| 1 | ProductLabelPdf CSS Update | Update ProductLabelPdf.tsx CSS print rules for margins, 80% scale, and label stacking gap | None | DONE |
 
 ## Interface Contracts
 
-### Invoice State Contract
+### Label PDF Print CSS Contract
+- `@page` rule in `buildLabelHtml` CSS explicitly states: `@page { margin: 0.33in 0.13in 0.46in 0.11in; }`.
+- Label container dimensions set to 80% scale (`width: 2.4in; height: 1.6in;`) with scaled internal padding, fonts (`8.8pt`, `7.2pt`, `6.4pt`), and QR code size (`56px`).
+- Multi-label container supports page breaks (`break-inside: avoid; page-break-inside: avoid;`) and vertical gap (`margin-bottom: 0.125in;`) for natural vertical stacking.
 
-- An invoice represents a draft if `isDraft` is `true`.
-- The `isDraft` field maps to database column `is_draft` via `src/lib/cloud.ts`.
-- finalized invoices have `isDraft === false` or `undefined`.
-- Inventory stock changes are only triggered for non-draft (`!isDraft`) invoices in the state actions.
+## Code Layout
+- `src/components/ProductLabelPdf.tsx`: Main component containing `buildLabelHtml`.
+- `tests/product-label-pdf.spec.ts`: Playwright test suite for print CSS verification.

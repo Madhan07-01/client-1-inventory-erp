@@ -49,3 +49,26 @@ When draft invoices are visible in the table, they must be clearly distinguished
 ---
 
 _The task has been delegated to the teamwork agent system._
+
+## Follow-up — 2026-08-06T18:52:37+05:30
+
+Update the `ProductLabelPdf.tsx` CSS print styles to automatically apply the exact layout, margins (Top 0.33", Left 0.11", Right 0.13", Bottom 0.46"), and scale (80%) that were previously manually selected, ensuring labels print correctly by default on any chosen paper size without manual browser print dialog adjustments.
+
+Working directory: client-1-inventory-erp
+Integrity mode: development
+
+## Requirements
+
+### R1. Default Print Configuration
+Update the `buildLabelHtml` CSS in `src/components/ProductLabelPdf.tsx` to enforce the specified margins using the `@page` directive (Top 0.33", Left 0.11", Right 0.13", Bottom 0.46"). Achieve the 80% visual scaling requirement through any technically appropriate CSS method. 
+
+### R2. Flexible Paper Size Stacking
+Ensure that when a larger paper size is selected (e.g., 4x6in), multiple labels stack vertically in a natural sequence with a standard small gap.
+
+## Acceptance Criteria
+
+### CSS Implementation
+- [ ] The CSS `@page` rule explicitly defines the requested custom margins: `margin: 0.33in 0.13in 0.46in 0.11in;` (top right bottom left).
+- [ ] The CSS explicitly scales the label dimensions by 80% (either via `transform` or direct dimension math).
+- [ ] The labels stack with a small visible gap when multiple labels are printed on a single larger sheet.
+

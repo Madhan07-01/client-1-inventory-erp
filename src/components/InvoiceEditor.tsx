@@ -602,7 +602,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
   }, [inv]);
 
   return (
-    <div className="p-8 space-y-8 max-w-[1100px]">
+    <div className="p-4 md:p-8 space-y-8 max-w-[1100px]">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">
@@ -811,7 +811,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                   : "Inter-State"}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs text-muted-foreground">Packages</Label>
                 <Input
@@ -861,7 +861,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 mb-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                 <div>
                   <select
                     className="w-full text-sm border rounded-md px-2 py-1.5 bg-white"
@@ -922,7 +922,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
               value={inv.dispatchFrom?.address ?? ""}
               onChange={(e) => patchDispatch({ address: e.target.value })}
             />
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <Input
                 placeholder="City"
                 value={inv.dispatchFrom?.city ?? ""}
@@ -942,7 +942,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
           </div>
         </Section>
         <Section title="Ship To" tint="var(--surface-customer)">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Input
               placeholder="City"
               value={inv.shipTo?.city ?? ""}

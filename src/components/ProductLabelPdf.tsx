@@ -5,7 +5,7 @@ import type { ProductMasterEntry, InventoryStock, Settings } from "@/lib/types";
 
 /**
  * Generates an HTML string for a printable QR product specification label,
- * scaled to occupy ~90% of the printable A4 page in a single page layout.
+ * scaled to occupy a 4x6 inch paper with two labels (top and bottom) separated by a cutting line.
  */
 export function buildLabelHtml(
   batch: InventoryStock,
@@ -17,18 +17,20 @@ export function buildLabelHtml(
   // Store only the Warehouse Ledger ID in the QR
   const qrPayload = batch.id || "";
 
+  const isNew = String(batch.category || "New").trim().toLowerCase() === "new";
+
   let rawQrSvg = "";
   try {
     rawQrSvg = ReactDOMServer.renderToString(
       React.createElement(QRCodeSVG, {
         value: qrPayload,
-        size: 120,
+        size: 160,
         level: "M",
-        includeMargin: false,
+        marginSize: isNew ? 4 : 0,
       })
     );
   } catch (_err) {
-    rawQrSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="#000"/></svg>';
+    rawQrSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="160" height="160" fill="#000"/></svg>';
   }
 
   if (!rawQrSvg.includes('xmlns=')) {
@@ -40,7 +42,61 @@ export function buildLabelHtml(
 
   const itemTypeHeader = (product.itemType || "BOLT NUT").toUpperCase();
   const productSize = (batch.size || "").trim();
-  const isNew = (batch.category ?? "Acid") === "New";
+
+  let threadDisplay = (batch.thread || "—").trim();
+  if (threadDisplay.toLowerCase() === "half" || threadDisplay.toLowerCase() === "full") {
+    threadDisplay += " Thread";
+  }
+
+  const labelContentHtml = `
+    <div class="solid-line"></div>
+    <div class="label-content">
+      <div class="left-section">
+        <div class="qr-wrapper">
+          <img src="${qrImgSrc}" alt="QR Code" />
+        </div>
+        <div class="item-type-header">${itemTypeHeader}</div>
+        ${productSize ? `<div class="size-header">${productSize}</div>` : ""}
+      </div>
+      <div class="right-section">
+        <table class="specs-table">
+          <tr>
+            <td class="label-col">Brand</td>
+            <td class="value-col">${batch.brandName || "—"}</td>
+          </tr>
+          <tr>
+            <td class="label-col">Lot Number</td>
+            <td class="value-col">${batch.lotNo || "—"}</td>
+          </tr>
+          <tr>
+            <td class="label-col">Finish</td>
+            <td class="value-col">${batch.finish || "—"}</td>
+          </tr>
+          <tr>
+            <td class="label-col">Grade</td>
+            <td class="value-col">${batch.grade || "—"}</td>
+          </tr>
+          <tr>
+            <td class="label-col">Thread Type</td>
+            <td class="value-col">${threadDisplay}</td>
+          </tr>
+          ${batch.customField1 && !batch.hideCustomField1 ? `
+          <tr>
+            <td colspan="2" class="custom-spec">${batch.customField1}</td>
+          </tr>` : ""}
+          ${batch.customField2 && !batch.hideCustomField2 ? `
+          <tr>
+            <td colspan="2" class="custom-spec">${batch.customField2}</td>
+          </tr>` : ""}
+          ${batch.customField3 && !batch.hideCustomField3 ? `
+          <tr>
+            <td colspan="2" class="custom-spec">${batch.customField3}</td>
+          </tr>` : ""}
+        </table>
+      </div>
+    </div>
+    <div class="solid-line"></div>
+  `;
 
   return `
     <!DOCTYPE html>
@@ -49,14 +105,15 @@ export function buildLabelHtml(
         <meta charset="utf-8">
         <title>Print Label - ${product.sku || product.description}</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
           
           * {
             box-sizing: border-box;
           }
 
           @page {
-            margin: 0.33in 0.13in 0.46in 0.11in;
+            size: 6in 4in;
+            margin: 0;
           }
 
           html, body {
@@ -68,101 +125,105 @@ export function buildLabelHtml(
             -webkit-print-color-adjust: exact;
           }
 
-          @media print {
-            .print-label {
-              border: none !important;
-            }
-          }
-
-          .print-label {
-            width: 2.4in;
-            height: 1.6in;
-            margin: 0 auto 0.125in auto;
-            padding: 0.08in;
+          .page-container {
+            width: 6in;
+            height: 4in;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
+            position: relative;
             background: #fff;
             page-break-inside: avoid;
             break-inside: avoid;
           }
 
-          .print-label:not(:last-child) {
-            margin-bottom: 0.125in;
+          .cutting-line {
+            position: absolute;
+            top: 0;
+            left: 3in;
+            height: 4in;
+            border-left: 1px dashed #666;
+            z-index: 10;
           }
 
-          .dotted-lines {
+          .label-half {
+            width: 3in;
+            height: 4in;
+            padding: 0.1in 0.12in;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+          }
+
+          .solid-line {
             width: 100%;
-            height: 3px;
-            border-top: 1px dotted #000;
-            border-bottom: 1px dotted #000;
-            margin-bottom: 4px;
+            height: 2px;
+            background-color: #000;
             flex-shrink: 0;
           }
 
           .label-content {
             display: flex;
             flex-direction: row;
-            flex: 1;
             width: 100%;
+            height: 1.75in;
             align-items: center;
+            justify-content: center;
+            padding: 5px 0;
+            gap: 10px;
+            overflow: hidden;
           }
 
           .left-section {
-            width: 50%;
+            width: 40%;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding-right: 4px;
           }
 
           .right-section {
-            width: 50%;
+            width: 60%;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            padding-left: 4px;
           }
 
           .qr-wrapper {
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
           }
 
           .qr-wrapper img {
             display: block;
-            width: 56px !important;
-            height: 56px !important;
-            max-width: 56px;
-            max-height: 56px;
+            width: 1.1in !important;
+            height: 1.1in !important;
+            max-width: 1.1in;
+            max-height: 1.1in;
             object-fit: contain;
-          }
-
-          .qr-border {
-            display: inline-block;
-            border: 1.5px solid #000;
-            padding: 2px;
-            line-height: 0;
+            ${isNew ? "padding: 6px; border: 2px solid #000;" : "padding: 0; border: none;"}
+            background-color: white;
+            border-radius: 4px;
           }
 
           .item-type-header {
             text-align: center;
-            font-size: 8.8pt;
+            font-size: 12pt;
             font-weight: 800;
-            color: #000;
+            color: #111;
             text-transform: uppercase;
-            margin: 0 0 3px 0;
+            margin: 0 0 2px 0;
             line-height: 1.1;
             word-break: break-word;
+            letter-spacing: -0.2px;
           }
 
           .size-header {
             text-align: center;
-            font-size: 7.2pt;
+            font-size: 11pt;
             font-weight: 700;
-            color: #111;
+            color: #222;
             margin: 0;
             line-height: 1.1;
           }
@@ -170,8 +231,8 @@ export function buildLabelHtml(
           .specs-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 6.4pt;
-            line-height: 1.3;
+            font-size: 9pt;
+            line-height: 1.25;
           }
 
           .specs-table td {
@@ -180,67 +241,37 @@ export function buildLabelHtml(
           }
 
           .specs-table .label-col {
-            font-weight: 600;
+            font-weight: 700;
             width: 45%;
             white-space: nowrap;
+            color: #111;
           }
 
           .specs-table .value-col {
-            font-weight: 400;
+            font-weight: 600;
             word-break: break-word;
+            color: #222;
+          }
+            
+          .custom-spec {
+            font-weight: 700;
+            padding-top: 2px !important;
+            color: #111;
           }
         </style>
       </head>
       <body>
-        <div class="print-label">
-          <div class="dotted-lines"></div>
-          <div class="label-content">
-            <div class="left-section">
-              <div class="qr-wrapper">
-                ${isNew
-                  ? `<div class="qr-border"><img src="${qrImgSrc}" alt="QR Code" width="56" height="56" /></div>`
-                  : `<img src="${qrImgSrc}" alt="QR Code" width="56" height="56" />`
-                }
-              </div>
-              <div class="item-type-header">${itemTypeHeader}</div>
-              ${productSize ? `<div class="size-header">${productSize}</div>` : ""}
-            </div>
-            <div class="right-section">
-              <table class="specs-table">
-                <tr>
-                  <td class="label-col">Brand</td>
-                  <td class="value-col">${batch.brandName || "—"}</td>
-                </tr>
-                <tr>
-                  <td class="label-col">Lot No</td>
-                  <td class="value-col">${batch.lotNo || "—"}</td>
-                </tr>
-                <tr>
-                  <td class="label-col">Finish</td>
-                  <td class="value-col">${batch.finish || "—"}</td>
-                </tr>
-                <tr>
-                  <td class="label-col">Grade</td>
-                  <td class="value-col">${batch.grade || "—"}</td>
-                </tr>
-                <tr>
-                  <td class="label-col">Thread</td>
-                  <td class="value-col">${batch.thread || "—"}</td>
-                </tr>
-                ${batch.customField1 && !batch.hideCustomField1 ? `
-                <tr>
-                  <td colspan="2" class="value-col" style="padding-top: 2px;">${batch.customField1}</td>
-                </tr>` : ""}
-                ${batch.customField2 && !batch.hideCustomField2 ? `
-                <tr>
-                  <td colspan="2" class="value-col">${batch.customField2}</td>
-                </tr>` : ""}
-                ${batch.customField3 && !batch.hideCustomField3 ? `
-                <tr>
-                  <td colspan="2" class="value-col">${batch.customField3}</td>
-                </tr>` : ""}
-              </table>
-            </div>
+        <div class="page-container">
+          <div class="cutting-line"></div>
+          
+          <!-- Top Label -->
+          <div class="label-half">
+            ${labelContentHtml}
+          </div>
+          
+          <!-- Bottom Label -->
+          <div class="label-half">
+            ${labelContentHtml}
           </div>
         </div>
       </body>
@@ -265,7 +296,7 @@ export function printProductLabel(
   const popup = window.open(
     "",
     "_blank",
-    "width=600,height=400,toolbar=no,menubar=no,scrollbars=yes",
+    "width=600,height=600,toolbar=no,menubar=no,scrollbars=yes",
   );
   if (!popup) {
     alert("Popup blocked. Please allow popups to print labels.");
@@ -306,7 +337,7 @@ export async function downloadProductLabel(
 
   const iframe = document.createElement("iframe");
   iframe.style.cssText =
-    "position:fixed;left:-10000px;top:0;width:2.4in;height:1.6in;border:0;background:#fff;";
+    "position:fixed;left:-10000px;top:0;width:6in;height:4in;border:0;background:#fff;";
   document.body.appendChild(iframe);
 
   try {
@@ -326,11 +357,11 @@ export async function downloadProductLabel(
     });
 
     const idoc = iframe.contentDocument!;
-    const pageEl = idoc.querySelector(".print-label") as HTMLElement | null;
+    const pageEl = idoc.querySelector(".page-container") as HTMLElement | null;
     if (!pageEl) throw new Error("Label page element not found");
 
     const canvas = await html2canvas(pageEl, {
-      scale: 4,
+      scale: 3,
       useCORS: true,
       logging: false,
     });
@@ -339,7 +370,7 @@ export async function downloadProductLabel(
     const pdf = new jsPDF({
       orientation: "landscape",
       unit: "in",
-      format: [2.4, 1.6]
+      format: [6, 4]
     });
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;

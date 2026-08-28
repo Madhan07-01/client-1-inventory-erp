@@ -81,7 +81,7 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
         const skuStr = String(row["Product SKU / Size"] || row["SKU"] || row["Product"] || "").trim().toLowerCase();
         if (!skuStr) throw new Error("Missing Product SKU / Size");
         
-        const product = productMaster.find(p => p.sku.toLowerCase() === skuStr || p.name.toLowerCase() === skuStr);
+        const product = productMaster.find(p => p.sku?.toLowerCase() === skuStr || p.description?.toLowerCase() === skuStr);
         if (!product) throw new Error(`Product not found: "${skuStr}"`);
         p.productId = product.id;
 
@@ -138,30 +138,36 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
         const change = row.type === "IN" ? row.quantity : -row.quantity;
         const now = new Date().toISOString();
 
-        // Check if existing stock matching criteria
-        const lotNo = String(r["Lot Number"] || "");
-        const size = String(r["Size"] || "");
-        const grade = String(r["Grade"] || "");
-        const thread = String(r["Thread"] || "");
-        const finish = String(r["Finish"] || "");
-        const category = row.category;
+        const lotNo = String(r["Lot Number"] || "").trim();
+        const size = String(r["Size"] || r["Product SKU / Size"] || "").trim();
+        const grade = String(r["Grade"] || "").trim();
+        const thread = String(r["Thread"] || "").trim();
+        const finish = String(r["Finish"] || "").trim();
+        const category = String(row.category).trim();
+        const custom1 = String(r["Custom Spec 1"] || r["Inner Diameter"] || "").trim();
+        const custom2 = String(r["Custom Spec 2"] || r["Outer Diameter"] || "").trim();
+        const custom3 = String(r["Custom Spec 3"] || r["Thickness"] || "").trim();
         
+        const cmp = (a?: string, b?: string) => (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
+
         const existingStock = inventoryStock.find(
           (s) =>
             s.productId === row.productId &&
             s.warehouseId === row.warehouseId &&
             s.locationId === row.locationId &&
-            (s.lotNo || "") === lotNo &&
-            (s.size || "") === size &&
-            (s.grade || "") === grade &&
-            (s.thread || "") === thread &&
-            (s.finish || "") === finish &&
-            (s.category || "Acid") === category
+            cmp(s.lotNo, lotNo) &&
+            cmp(s.size, size) &&
+            cmp(s.grade, grade) &&
+            cmp(s.thread, thread) &&
+            cmp(s.finish, finish) &&
+            cmp(s.category, category) &&
+            cmp(s.customField1, custom1) &&
+            cmp(s.customField2, custom2) &&
+            cmp(s.customField3, custom3)
         );
 
         const newQty = (existingStock?.quantity ?? 0) + change;
         
-        const custom1 = String(r["Custom Spec 1"] || "");
         const hide1 = String(r["Hide Spec 1"] || "").toLowerCase() === "yes";
 
         const newStock = existingStock
@@ -181,6 +187,9 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
               brandName: String(r["Brand"] || "") || undefined,
               supplier: String(r["Goods From"] || r["Supplier"] || "") || undefined,
               goodsFrom: String(r["Goods From"] || r["Supplier"] || "") || undefined,
+              purchaseDate: String(r["Purchase Date"] || "") || undefined,
+              purchaseRate: r["Purchase Rate"] ? Number(r["Purchase Rate"]) : undefined,
+              purchaseRef: String(r["Purchase Ref"] || r["Purchase Reference"] || "") || undefined,
               size: size || undefined,
               grade: grade || undefined,
               thread: thread || undefined,
@@ -190,6 +199,10 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
               category: category,
               customField1: custom1 || undefined,
               hideCustomField1: hide1,
+              customField2: custom2 || undefined,
+              hideCustomField2: String(r["Hide Spec 2"] || "").toLowerCase() === "yes",
+              customField3: custom3 || undefined,
+              hideCustomField3: String(r["Hide Spec 3"] || "").toLowerCase() === "yes",
             };
 
         const txn = {

@@ -499,7 +499,7 @@ export function QuotationEditor({
   }, [q]);
 
   return (
-    <div className="p-8 space-y-8 max-w-[1100px]">
+    <div className="p-4 md:p-8 space-y-8 max-w-[1100px]">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-3">
@@ -690,7 +690,7 @@ export function QuotationEditor({
                 onChange={(e) => patch({ number: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs text-muted-foreground">Date</Label>
                 <Input
@@ -810,12 +810,12 @@ export function QuotationEditor({
             <thead className="bg-[var(--surface-summary)] text-left">
               <tr>
                 <th className="px-3 py-2 font-medium w-10">#</th>
-                <th className="px-3 py-2 font-medium">Description</th>
-                <th className="px-3 py-2 font-medium w-24">HSN CODE</th>
-                <th className="px-3 py-2 font-medium w-28 text-right">KGS</th>
-                <th className="px-3 py-2 font-medium w-28 text-right">Price</th>
-                <th className="px-3 py-2 font-medium w-28 text-right">Amount</th>
-                <th className="px-3 py-2 w-20"></th>
+                <th className="px-3 py-2 font-medium min-w-[200px]">Description</th>
+                <th className="px-3 py-2 font-medium min-w-[120px]">HSN CODE</th>
+                <th className="px-3 py-2 font-medium min-w-[100px] text-right">KGS</th>
+                <th className="px-3 py-2 font-medium min-w-[100px] text-right">Price</th>
+                <th className="px-3 py-2 font-medium min-w-[120px] text-right">Amount</th>
+                <th className="px-3 py-2 w-16"></th>
               </tr>
             </thead>
             <tbody>

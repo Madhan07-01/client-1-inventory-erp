@@ -376,16 +376,23 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Item Type *</Label>
-                  <select
+                  <Input
+                    list="item-types"
                     value={editing.itemType}
                     onChange={(e) => setEditing({ ...editing, itemType: e.target.value })}
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <option value="">Select Item Type</option>
-                    <option value="Bolt Nut">Bolt Nut</option>
-                    <option value="Bolt Nut Washer Set">Bolt Nut Washer Set</option>
-                    <option value="Only Bolt">Only Bolt</option>
-                  </select>
+                    placeholder="Select or type..."
+                  />
+                  <datalist id="item-types">
+                    <option value="bolt" />
+                    <option value="nut" />
+                    <option value="bolt- nut" />
+                    <option value="spring washer" />
+                    <option value="plate washer" />
+                    <option value="bolt- nut spring washer" />
+                    <option value="bolt- nut plate washer" />
+                    <option value="bolt - nut one spring washer - one plate washer" />
+                    <option value="bolt - nut one spring washer 2 plate washer" />
+                  </datalist>
                 </div>
               </div>
 
@@ -400,21 +407,18 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">HSN / SAC Code</Label>
-                  <Select
-                    value={editing.hsn || undefined}
-                    onValueChange={(val) => setEditing({ ...editing, hsn: val === "other" ? "" : val })}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="e.g. 7318" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="7318">7318 (Screws/Bolts/Nuts)</SelectItem>
-                      <SelectItem value="7204">7204 (Ferrous Waste/Scrap)</SelectItem>
-                      <SelectItem value="7314">7314 (Cloth/Grill/Netting)</SelectItem>
-                      <SelectItem value="7315">7315 (Chain/Parts)</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    list="hsn-codes"
+                    value={editing.hsn}
+                    onChange={(e) => setEditing({ ...editing, hsn: e.target.value })}
+                    placeholder="e.g. 7318"
+                  />
+                  <datalist id="hsn-codes">
+                    <option value="7318">7318 (Screws/Bolts/Nuts)</option>
+                    <option value="7204">7204 (Ferrous Waste/Scrap)</option>
+                    <option value="7314">7314 (Cloth/Grill/Netting)</option>
+                    <option value="7315">7315 (Chain/Parts)</option>
+                  </datalist>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">

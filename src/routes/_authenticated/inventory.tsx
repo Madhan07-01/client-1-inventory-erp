@@ -452,9 +452,20 @@ function InventoryPage() {
                   <Download className="w-4 h-4" />
                   Export Report
                 </Button>
-                <Button onClick={() => { setAdjustData(emptyAdjust()); setIsAdjusting(true); }} className="gap-2 w-full sm:w-auto">
+                <Button 
+                  onClick={() => { 
+                    if (isAdjusting) {
+                      setIsAdjusting(false);
+                    } else {
+                      setAdjustData(emptyAdjust()); 
+                      setIsAdjusting(true); 
+                    }
+                  }} 
+                  className="gap-2 w-full sm:w-auto"
+                  variant={isAdjusting ? "secondary" : "default"}
+                >
                   <ScanBarcode className="w-4 h-4" />
-                  Adjust Stock
+                  {isAdjusting ? "Close Adjustment" : "Adjust Stock"}
                 </Button>
               </div>
             </div>

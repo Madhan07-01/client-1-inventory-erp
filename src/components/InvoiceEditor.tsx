@@ -102,6 +102,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const warehouses = useApp((s) => s.warehouses);
   const inventoryStock = useApp((s) => s.inventoryStock);
+  const quotations = useApp((s) => s.quotations);
 
   useEffect(() => {
     setInv(initial);
@@ -118,6 +119,16 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
   const hsnHistory = useMemo(() => {
     const seen = new Set<string>();
     const list: string[] = [];
+    
+    // Add from Product Master
+    for (const p of activeProducts) {
+      if (p.hsn && !seen.has(p.hsn)) {
+        seen.add(p.hsn);
+        list.push(p.hsn);
+      }
+    }
+    
+    // Add from Invoices
     for (const inv of invoices) {
       for (const it of inv.items) {
         if (it.hsn && !seen.has(it.hsn)) {
@@ -126,8 +137,19 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
         }
       }
     }
+    
+    // Add from Quotations
+    for (const quot of quotations) {
+      for (const it of quot.items) {
+        if (it.hsn && !seen.has(it.hsn)) {
+          seen.add(it.hsn);
+          list.push(it.hsn);
+        }
+      }
+    }
+    
     return list;
-  }, [invoices]);
+  }, [invoices, quotations, activeProducts]);
 
   // Get batches for a given product across warehouses
   function getBatchesForProduct(productId: string): InventoryStock[] {

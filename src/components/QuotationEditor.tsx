@@ -165,6 +165,16 @@ export function QuotationEditor({
   const hsnHistory = useMemo(() => {
     const seen = new Set<string>();
     const list: string[] = [];
+    
+    // Add from Product Master
+    for (const p of activeProducts) {
+      if (p.hsn && !seen.has(p.hsn)) {
+        seen.add(p.hsn);
+        list.push(p.hsn);
+      }
+    }
+    
+    // Add from Invoices
     for (const inv of invoices) {
       for (const it of inv.items) {
         if (it.hsn && !seen.has(it.hsn)) {
@@ -173,6 +183,8 @@ export function QuotationEditor({
         }
       }
     }
+    
+    // Add from Quotations
     for (const quot of quotations) {
       for (const it of quot.items) {
         if (it.hsn && !seen.has(it.hsn)) {
@@ -182,7 +194,7 @@ export function QuotationEditor({
       }
     }
     return list;
-  }, [invoices, quotations]);
+  }, [invoices, quotations, activeProducts]);
 
   function getBatchesForProduct(productId: string) {
     return inventoryStock.filter(
@@ -385,7 +397,7 @@ export function QuotationEditor({
     }
     try {
       const final = ensureSaved({ isDraft: asDraft });
-      await cloud.upsertQuotation(final);
+
       saveQuotation(final);
       setQ(final);
       if (asDraft) setDraftSavedAt(Date.now());
@@ -417,7 +429,7 @@ export function QuotationEditor({
       }
       try {
         final = ensureSaved({ isDraft: false });
-        await cloud.upsertQuotation(final);
+  
         saveQuotation(final);
         setQ(final);
       } catch (e: any) {
@@ -442,7 +454,7 @@ export function QuotationEditor({
       }
       try {
         final = ensureSaved({ isDraft: false });
-        await cloud.upsertQuotation(final);
+  
         saveQuotation(final);
         setQ(final);
       } catch (e: any) {

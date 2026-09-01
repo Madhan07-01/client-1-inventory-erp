@@ -140,6 +140,7 @@ export function QuotationEditor({
 }) {
   const navigate = useNavigate();
   const settings = useApp((s) => s.settings);
+  const warehouses = useApp((s) => s.warehouses);
   const customers = useApp((s) => s.customers);
   const inventoryStock = useApp((s) => s.inventoryStock);
   const saveQuotation = useApp((s) => s.saveQuotation);

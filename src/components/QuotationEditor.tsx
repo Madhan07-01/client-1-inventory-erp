@@ -197,7 +197,7 @@ export function QuotationEditor({
     if (b.finish) parts.push(`Finish: ${b.finish}`);
     if (b.thread) parts.push(`Thread: ${b.thread}`);
     if (b.lotNo) parts.push(`Lot: ${b.lotNo}`);
-    const wh = settings.warehouses.find(w => w.id === b.warehouseId)?.name || b.warehouseId;
+    const wh = warehouses.find(w => w.id === b.warehouseId)?.name || b.warehouseId;
     if (wh) parts.push(`WH: ${wh}`);
     if (b.location) parts.push(`Loc: ${b.location}`);
     if (b.quantity != null) parts.push(`Qty: ${b.quantity}`);

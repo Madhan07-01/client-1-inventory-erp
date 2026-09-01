@@ -471,9 +471,25 @@ export function QuotationEditor({
       toast.error(`Already converted — invoice ${q.convertedInvoiceNumber ?? ""}`);
       return;
     }
+    
+    let finalQuotation = q;
+    if (!isLocked) {
+      if (mode === "create") {
+        const initialNum = `${settings.quotationPrefix}-${String(settings.nextQuotationNumber).padStart(settings.quotationDigits || 4, "0")}`;
+        if (q.number === initialNum) consumeQuotationNumber();
+      }
+      try {
+        finalQuotation = ensureSaved({ isDraft: false });
+        // We do not saveQuotation here because convertQuotationToInvoice will do it
+      } catch (e: any) {
+        toast.error(e.message || "Failed to validate quotation for conversion");
+        return;
+      }
+    }
+    
     try {
       const st = useApp.getState();
-      const { invoice, quotation } = convertQuotationToInvoice(q, st);
+      const { invoice, quotation } = convertQuotationToInvoice(finalQuotation, st);
       st.saveInvoice(invoice);
       st.saveQuotation(quotation);
       setQ(quotation);
@@ -537,7 +553,7 @@ export function QuotationEditor({
           )}
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          {!isLocked && !q.convertedInvoiceId && mode === "edit" && (
+          {!isLocked && !q.convertedInvoiceId && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2" title="Convert to Invoice">

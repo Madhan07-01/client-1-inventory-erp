@@ -50,7 +50,7 @@ export function convertQuotationToInvoice(
     createdAt: new Date().toISOString(),
     placeOfSupply: q.placeOfSupply,
     gstMode: q.gstMode,
-    isDraft: false,
+    isDraft: true, // Converted invoices open as drafts to prevent premature stock deduction
     ewayBillNumber: q.ewayBillNumber,
     transportMode: q.transportMode,
     packages: q.packages,

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, Fragment } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { cloud } from "@/lib/cloud";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -488,6 +489,45 @@ export function QuotationEditor({
       }
     }
     
+    // STEP 2: Validate Current Live Stock
+    let hasInsufficientStock = false;
+    const shortageMessages: string[] = [];
+    const activeProducts = useApp.getState().settings.productMaster.filter((p) => p.active);
+
+    for (const item of finalQuotation.items) {
+      if (!item.quantity || !item.description) continue;
+      const p = activeProducts.find(
+        (x) => x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
+      );
+      if (!p) continue;
+
+      try {
+        const latestStock = await cloud.fetchStockForProduct(p.id);
+        if (latestStock < item.quantity) {
+          hasInsufficientStock = true;
+          if (latestStock === 0) {
+            shortageMessages.push(`- ${item.description}:\n  Required: ${item.quantity}\n  Available: 0\n  Status: Stock Empty`);
+          } else {
+            shortageMessages.push(
+              `- ${item.description}:\n  Required: ${item.quantity}\n  Available: ${latestStock}\n  Shortage: ${item.quantity - latestStock}`
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching stock for conversion:", err);
+        toast.error("Failed to validate stock with server. Please check your connection.");
+        return;
+      }
+    }
+
+    if (hasInsufficientStock) {
+      toast.error(
+        `Cannot convert quotation to invoice because some items do not have sufficient stock.\n\n${shortageMessages.join("\n\n")}`,
+        { duration: 8000, style: { whiteSpace: 'pre-wrap' } }
+      );
+      return;
+    }
+
     try {
       const st = useApp.getState();
       const { invoice, quotation } = convertQuotationToInvoice(finalQuotation, st);

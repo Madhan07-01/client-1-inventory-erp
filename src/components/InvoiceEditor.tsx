@@ -457,7 +457,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
 
     // Auto-selection of dispatch warehouse is now handled by the multi-warehouse useEffect watcher
   }
-  function ensureSaved(extra?: Partial<Invoice>): Invoice {
+  function prepareInvoiceData(extra?: Partial<Invoice>): Invoice {
     let final = inv;
     if (extra) final = { ...final, ...extra };
     // Filter out empty rows
@@ -472,11 +472,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       cleanedItems = [blankItem()];
     }
     final = { ...final, items: cleanedItems };
-    // Note: products are no longer auto-saved to product master from invoices.
-    // Products are managed via the Product Master tab in Inventory.
-    if (mode === "create" && (!final.number || final.number === initial.number)) {
-      // consume official number only on save (already preassigned via initial)
-    }
+    
     if (saveAsCustomer && final.customer.name.trim()) {
       const existing = customers.find((c) => 
         c.name.trim().toLowerCase() === final.customer.name.trim().toLowerCase() &&
@@ -487,11 +483,20 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       } else {
         const id = newId();
         const c = { ...final.customer, id };
-        addCustomer(c);
         final = { ...final, customer: c };
       }
+    }
+    return final;
+  }
+
+  function ensureSaved(extra?: Partial<Invoice>): Invoice {
+    const final = prepareInvoiceData(extra);
+    
+    if (saveAsCustomer && final.customer.name.trim() && !customers.find(c => c.id === final.customer.id)) {
+      addCustomer(final.customer);
       setSaveAsCustomer(false);
     }
+    
     saveInvoice(final, mode === "edit" ? initial : undefined);
     return final;
   }
@@ -507,8 +512,14 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       try {
         const latestStock = await cloud.fetchStockForProduct(p.id, inv.dispatchWarehouseId || undefined, inv.dispatchLocationId || undefined);
         if (latestStock < item.quantity) {
-           toast.error(`❌ Concurrent modification: Not enough stock for ${item.description}. Available: ${latestStock}`);
-           return false;
+          if (latestStock === 0) {
+            toast.error(`Stock is empty for ${item.description}.`);
+          } else {
+            toast.error(
+              `Insufficient stock. Only ${latestStock} units available for ${item.description}, but ${item.quantity} requested. Short by ${item.quantity - latestStock}.`,
+            );
+          }
+          return false;
         }
       } catch (err) {
         console.error("Error fetching stock:", err);
@@ -559,23 +570,10 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       toast.error("Customer name is required");
       return;
     }
-    if (hasInvalidStock) {
-      toast.error("Please fix invalid stock quantities before exporting.");
-      return;
-    }
-    const isValid = await validateStockNetwork();
-    if (!isValid) return;
-
-    if (mode === "create") {
-      const current = settings.nextInvoiceNumber;
-      const initialNum = `${settings.invoicePrefix}-${String(current).padStart(settings.invoiceDigits || 4, "0")}`;
-      if (inv.number === initialNum) consumeInvoiceNumber();
-    }
-    const final = ensureSaved({ isDraft: false });
-    await downloadInvoicePdf(final);
-    if (mode === "create") {
-      navigate({ to: "/invoices/$id", params: { id: final.id } });
-    }
+    
+    // We only prepare the data for the PDF; we do NOT save or deduct stock here.
+    const preview = prepareInvoiceData({ isDraft: false });
+    await downloadInvoicePdf(preview);
   }
 
   async function handlePrint() {
@@ -583,23 +581,10 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       toast.error("Customer name is required");
       return;
     }
-    if (hasInvalidStock) {
-      toast.error("Please fix invalid stock quantities before printing.");
-      return;
-    }
-    const isValid = await validateStockNetwork();
-    if (!isValid) return;
 
-    if (mode === "create") {
-      const current = settings.nextInvoiceNumber;
-      const initialNum = `${settings.invoicePrefix}-${String(current).padStart(settings.invoiceDigits || 4, "0")}`;
-      if (inv.number === initialNum) consumeInvoiceNumber();
-    }
-    const final = ensureSaved({ isDraft: false });
-    await printInvoicePdf(final);
-    if (mode === "create") {
-      navigate({ to: "/invoices/$id", params: { id: final.id } });
-    }
+    // We only prepare the data for the PDF; we do NOT save or deduct stock here.
+    const preview = prepareInvoiceData({ isDraft: false });
+    await printInvoicePdf(preview);
   }
 
   // Keyboard shortcuts
@@ -1089,13 +1074,18 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                       value={it.quantity ?? ""}
                       placeholder="0"
                       onChange={(e) => {
-                        let val = e.target.value === "" ? null : Number(e.target.value);
+                        const val = e.target.value === "" ? null : Number(e.target.value);
                         if (val !== null && it.description) {
-                           const avail = getAvailableStock(it.description);
-                           if (avail !== null && val > avail) {
-                              toast.error(`Cannot exceed available stock (${avail})`);
-                              val = avail; // Cap at available
-                           }
+                          const avail = getAvailableStock(it.description);
+                          if (avail !== null && val > avail) {
+                            if (avail === 0) {
+                              toast.error(`Stock is empty for ${it.description}.`);
+                            } else {
+                              toast.error(
+                                `Insufficient stock. Only ${avail} units available for ${it.description}, but ${val} requested. Short by ${val - avail}.`,
+                              );
+                            }
+                          }
                         }
                         updateItem(it.id, { quantity: val });
                       }}

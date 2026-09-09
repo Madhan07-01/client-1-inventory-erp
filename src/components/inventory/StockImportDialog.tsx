@@ -139,13 +139,17 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
         const now = new Date().toISOString();
 
         const lotNo = String(r["Lot Number"] || "").trim();
-        const size = String(r["Size"] || r["Product SKU / Size"] || "").trim();
+        // "Size" column only — never fall back to the SKU/product name column
+        const size = String(r["Size"] || "").trim();
         const grade = String(r["Grade"] || "").trim();
         const thread = String(r["Thread"] || "").trim();
         const finish = String(r["Finish"] || "").trim();
-        const category = String(row.category).trim();
+        const categoryRaw = String(row.category || "Acid").trim();
+        const category: "New" | "Acid" | undefined =
+          categoryRaw === "New" || categoryRaw === "Acid" ? categoryRaw : "Acid";
         const custom1 = String(r["Custom Spec 1"] || r["Inner Diameter"] || "").trim();
         const custom2 = String(r["Custom Spec 2"] || r["Outer Diameter"] || "").trim();
+        // "Thickness" column maps to Custom Spec 3 in the user's sample file
         const custom3 = String(r["Custom Spec 3"] || r["Thickness"] || "").trim();
         
         const cmp = (a?: string, b?: string) => (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
@@ -167,8 +171,11 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
         );
 
         const newQty = (existingStock?.quantity ?? 0) + change;
-        
-        const hide1 = String(r["Hide Spec 1"] || "").toLowerCase() === "yes";
+
+        // Parse all three hide flags in one place
+        const hide1 = String(r["Hide Spec 1"] || "").trim().toLowerCase() === "yes";
+        const hide2 = String(r["Hide Spec 2"] || "").trim().toLowerCase() === "yes";
+        const hide3 = String(r["Hide Spec 3"] || "").trim().toLowerCase() === "yes";
 
         const newStock = existingStock
           ? {
@@ -200,9 +207,9 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
               customField1: custom1 || undefined,
               hideCustomField1: hide1,
               customField2: custom2 || undefined,
-              hideCustomField2: String(r["Hide Spec 2"] || "").toLowerCase() === "yes",
+              hideCustomField2: hide2,
               customField3: custom3 || undefined,
-              hideCustomField3: String(r["Hide Spec 3"] || "").toLowerCase() === "yes",
+              hideCustomField3: hide3,
             };
 
         const txn = {
@@ -255,7 +262,7 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
             <Upload className="w-4 h-4" />
             Select Excel File
           </Button>
-          <a href="/Book1- inventory.xlsx" download="Book1- inventory.xlsx" tabIndex={-1}>
+          <a href="/INVENTORY SAMPLE STOCK.xlsx" download="INVENTORY SAMPLE STOCK.xlsx" tabIndex={-1}>
             <Button variant="outline" className="gap-2">
               <Download className="h-4 w-4" />
               Download Sample

@@ -4,9 +4,10 @@ import { AppShell } from "@/components/AppShell";
 import { useApp } from "@/lib/store";
 import { computeTotals, formatINR, formatDate } from "@/lib/calc";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Trash2, Pencil, Printer, Ban } from "lucide-react";
+import { Plus, Search, Trash2, Pencil, Printer, Ban, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { printInvoicePdf } from "@/components/InvoicePdf";
+import { printDeliveryChallanPdf } from "@/components/DeliveryChallanPdf";
 import { cloud } from "@/lib/cloud";
 import { isToday, startOfMonth, parseISO, isAfter } from "date-fns";
 import { TrendChart } from "@/components/analytics/TrendChart";
@@ -94,6 +95,16 @@ function InvoicesList() {
     const src = invoices.find((i) => i.id === id);
     if (!src) return;
     await printInvoicePdf(src);
+  }
+
+  async function handlePrintChallan(id: string) {
+    const src = invoices.find((i) => i.id === id);
+    if (!src) return;
+    try {
+      await printDeliveryChallanPdf(src);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to open delivery challan");
+    }
   }
 
   function handleCancel(id: string) {
@@ -255,6 +266,14 @@ function InvoicesList() {
                             title="Edit"
                           >
                             <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handlePrintChallan(inv.id)}
+                            title="Delivery Challan"
+                          >
+                            <Truck className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"

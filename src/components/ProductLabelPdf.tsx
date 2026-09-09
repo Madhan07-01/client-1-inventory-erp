@@ -17,7 +17,7 @@ export function buildLabelHtml(
   // Store only the Warehouse Ledger ID in the QR
   const qrPayload = batch.id || "";
 
-  const isNew = String(batch.category || "New").trim().toLowerCase() === "new";
+  const isAcid = String(batch.category || "").trim().toLowerCase() === "acid";
 
   let rawQrSvg = "";
   try {
@@ -26,7 +26,7 @@ export function buildLabelHtml(
         value: qrPayload,
         size: 160,
         level: "M",
-        marginSize: isNew ? 4 : 0,
+        marginSize: 0, // Control margin entirely via CSS padding for sharper control
       })
     );
   } catch (_err) {
@@ -202,9 +202,8 @@ export function buildLabelHtml(
             max-width: 1.1in;
             max-height: 1.1in;
             object-fit: contain;
-            ${isNew ? "padding: 6px; border: 2px solid #000;" : "padding: 0; border: none;"}
+            ${isAcid ? "padding: 2px; border: 1px solid #000; border-radius: 0;" : "padding: 0; border: none;"}
             background-color: white;
-            border-radius: 4px;
           }
 
           .item-type-header {

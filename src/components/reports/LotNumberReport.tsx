@@ -57,9 +57,15 @@ export function LotNumberReport() {
 
   const availableLots = useMemo(() => {
     const lots = new Set<string>();
-    inventoryStock.forEach(s => { if (s.lotNo && s.lotNo !== "-") lots.add(s.lotNo.trim()); });
-    inventoryTransactions.forEach(t => { if (t.lotNo && t.lotNo !== "-") lots.add(t.lotNo.trim()); });
-    allProducts.forEach(p => { if (p.lotNo && p.lotNo !== "-") lots.add(p.lotNo.trim()); });
+    inventoryStock.forEach(s => { 
+      if (s.lotNo && s.lotNo !== "-") lots.add(String(s.lotNo).trim()); 
+    });
+    inventoryTransactions.forEach(t => { 
+      if (t.lotNo && t.lotNo !== "-") lots.add(String(t.lotNo).trim()); 
+    });
+    allProducts.forEach(p => { 
+      if (p.lotNo && p.lotNo !== "-") lots.add(String(p.lotNo).trim()); 
+    });
     return Array.from(lots).sort();
   }, [allProducts, inventoryStock, inventoryTransactions]);
 
@@ -187,7 +193,7 @@ export function LotNumberReport() {
                 />
                 {selectedLot && <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />}
               </div>
-              {showDropdown && filteredLots.length > 0 && (
+              {showDropdown && (filteredLots.length > 0 || lotQuery.trim()) && (
                 <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
                   {filteredLots.map((lot) => (
                     <button
@@ -203,6 +209,19 @@ export function LotNumberReport() {
                       <div className="font-medium">{lot}</div>
                     </button>
                   ))}
+                  {lotQuery.trim() && !filteredLots.includes(lotQuery.trim()) && (
+                    <button
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted text-primary"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setSelectedLot(lotQuery.trim());
+                        setLotQuery(lotQuery.trim());
+                        setShowDropdown(false);
+                      }}
+                    >
+                      <div className="font-medium">Use "{lotQuery.trim()}"</div>
+                    </button>
+                  )}
                 </div>
               )}
             </div>

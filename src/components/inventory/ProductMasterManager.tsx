@@ -35,7 +35,7 @@ function emptyProduct(): EditableProduct {
     description: "",
     hsn: "",
     active: true,
-    itemType: "Bolt Nut",
+    itemType: "",
   };
 }
 
@@ -71,7 +71,7 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
       description: p.description,
       hsn: p.hsn ?? "",
       active: p.active !== false,
-      itemType: p.itemType ?? "Bolt Nut",
+      itemType: p.itemType ?? "",
     });
   }
 
@@ -85,7 +85,12 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
       toast.error("Product description is required");
       return;
     }
-    const itemType = editing.itemType || "Bolt Nut";
+    if (!editing.itemType.trim()) {
+      toast.error("Item Type is required");
+      return;
+    }
+    
+    const itemType = editing.itemType.trim();
     const sku = editing.sku.trim();
     upsertProduct({
       id: editing.id || undefined,

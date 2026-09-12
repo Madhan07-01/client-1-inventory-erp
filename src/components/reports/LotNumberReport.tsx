@@ -57,9 +57,11 @@ export function LotNumberReport() {
 
   const availableLots = useMemo(() => {
     const lots = new Set<string>();
-    allProducts.forEach(p => { if (p.lotNo) lots.add(p.lotNo.trim()); });
+    inventoryStock.forEach(s => { if (s.lotNo && s.lotNo !== "-") lots.add(s.lotNo.trim()); });
+    inventoryTransactions.forEach(t => { if (t.lotNo && t.lotNo !== "-") lots.add(t.lotNo.trim()); });
+    allProducts.forEach(p => { if (p.lotNo && p.lotNo !== "-") lots.add(p.lotNo.trim()); });
     return Array.from(lots).sort();
-  }, [allProducts]);
+  }, [allProducts, inventoryStock, inventoryTransactions]);
 
   const filteredLots = useMemo(() => {
     const q = lotQuery.toLowerCase().trim();
@@ -74,8 +76,9 @@ export function LotNumberReport() {
 
   function handleGenerateReport() {
     setDateError("");
-    if (!selectedLot) {
-      toast.error("Please select a Lot Number first.");
+    const targetLot = selectedLot || lotQuery.trim();
+    if (!targetLot) {
+      toast.error("Please select or enter a Lot Number first.");
       return;
     }
     let fromDate: string;
@@ -99,13 +102,22 @@ export function LotNumberReport() {
 
     setLoading(true);
     setTimeout(() => {
-      const products = allProducts.filter(p => p.lotNo === selectedLot);
-      const productIds = new Set(products.map(p => p.id));
+      // Find all stock for this lot
+      const stock = inventoryStock.filter(s => s.lotNo === targetLot);
+      const lotTransactions = inventoryTransactions.filter(t => t.lotNo === targetLot);
+
+      // Get unique product IDs that have this lot
+      const productIds = new Set<string>();
+      stock.forEach(s => productIds.add(s.productId));
+      lotTransactions.forEach(t => productIds.add(t.productId));
+      // Fallback: check product master lotNo
+      allProducts.filter(p => p.lotNo === targetLot).forEach(p => productIds.add(p.id));
+
+      const products = allProducts.filter(p => productIds.has(p.id));
       const productDescriptions = new Set(products.map(p => p.description.trim().toLowerCase()));
 
-      const stock = inventoryStock.filter(s => productIds.has(s.productId));
       const transactions = inventoryTransactions.filter(t => 
-        productIds.has(t.productId) && 
+        (t.lotNo === targetLot || productIds.has(t.productId)) && 
         (t.createdAt ? t.createdAt.slice(0, 10) >= fromDate && t.createdAt.slice(0, 10) <= toDate : true)
       );
 
@@ -126,7 +138,8 @@ export function LotNumberReport() {
         invoices
       });
       setLoading(false);
-      toast.success(`Generated report for Lot ${selectedLot}`);
+      toast.success(`Generated report for Lot ${targetLot}`);
+      if (!selectedLot) setSelectedLot(targetLot);
     }, 100);
   }
 

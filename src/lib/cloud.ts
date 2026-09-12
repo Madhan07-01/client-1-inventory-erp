@@ -419,7 +419,7 @@ export function transactionToRow(t: InventoryTransaction, userId: string) {
 
 // ---------- API ---------------------------------------------------------
 
-async function currentUserId(): Promise<string> {
+export async function currentUserId(): Promise<string> {
   const { data } = await supabase.auth.getUser();
   const id = data.user?.id;
   if (!id) throw new Error("Not authenticated");
@@ -616,6 +616,33 @@ export const cloud = {
       .from("inventory_transactions")
       .insert(transactionToRow(t, userId));
     if (error) throw error;
+  },
+
+  /** Batch-upsert inventory stocks with a pre-fetched userId (avoids repeated auth calls). */
+  async batchUpsertInventoryStock(stocks: InventoryStock[], userId: string) {
+    if (stocks.length === 0) return;
+    // Supabase has a row limit per request; chunk into groups of 50
+    for (let i = 0; i < stocks.length; i += 50) {
+      const chunk = stocks.slice(i, i + 50);
+      const rows = chunk.map((s) => stockToRow(s, userId));
+      const { error } = await supabase
+        .from("inventory_stock")
+        .upsert(rows, { onConflict: "id" });
+      if (error) throw error;
+    }
+  },
+
+  /** Batch-insert inventory transactions with a pre-fetched userId (avoids repeated auth calls). */
+  async batchInsertInventoryTransactions(txns: InventoryTransaction[], userId: string) {
+    if (txns.length === 0) return;
+    for (let i = 0; i < txns.length; i += 50) {
+      const chunk = txns.slice(i, i + 50);
+      const rows = chunk.map((t) => transactionToRow(t, userId));
+      const { error } = await supabase
+        .from("inventory_transactions")
+        .insert(rows);
+      if (error) throw error;
+    }
   },
 
   async fetchWarehouses(): Promise<Warehouse[]> {

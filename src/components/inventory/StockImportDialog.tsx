@@ -6,6 +6,8 @@ import { Download, Upload, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useApp, newId } from "@/lib/store";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { cloud, currentUserId } from "@/lib/cloud";
+import type { InventoryStock, InventoryTransaction } from "@/lib/types";
 
 interface Props {
   open: boolean;
@@ -34,8 +36,6 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
   const productMaster = useApp((s) => s.settings.productMaster);
   const warehouses = useApp((s) => s.warehouses);
   const inventoryStock = useApp((s) => s.inventoryStock);
-  const upsertInventoryStock = useApp((s) => s.upsertInventoryStock);
-  const insertInventoryTransaction = useApp((s) => s.insertInventoryTransaction);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -132,6 +132,19 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
     const validRows = rows.filter(r => r.isValid);
     let imported = 0;
 
+    // Pre-fetch the userId ONCE before the loop to avoid 100+ auth calls
+    let userId: string;
+    try {
+      userId = await currentUserId();
+    } catch {
+      toast.error("Not authenticated. Please log in and try again.");
+      setIsProcessing(false);
+      return;
+    }
+
+    const allStocks: InventoryStock[] = [];
+    const allTxns: InventoryTransaction[] = [];
+
     for (const row of validRows) {
       try {
         const r = row.raw;
@@ -149,8 +162,8 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
           categoryRaw === "New" || categoryRaw === "Acid" ? categoryRaw : "Acid";
         const custom1 = String(r["Custom Spec 1"] || r["Inner Diameter"] || "").trim();
         const custom2 = String(r["Custom Spec 2"] || r["Outer Diameter"] || "").trim();
-        // "Thickness" column maps to Custom Spec 3 in the user's sample file
-        const custom3 = String(r["Custom Spec 3"] || r["Thickness"] || "").trim();
+        // "Thickness" column has been removed from the Excel template
+        const custom3 = String(r["Custom Spec 3"] || "").trim();
         
         const cmp = (a?: string, b?: string) => (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
 
@@ -177,7 +190,7 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
         const hide2 = String(r["Hide Spec 2"] || "").trim().toLowerCase() === "yes";
         const hide3 = String(r["Hide Spec 3"] || "").trim().toLowerCase() === "yes";
 
-        const newStock = existingStock
+        const newStock: InventoryStock = existingStock
           ? {
               ...existingStock,
               quantity: newQty,
@@ -191,7 +204,7 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
               quantity: newQty,
               updatedAt: now,
               lotNo: lotNo || undefined,
-              brandName: String(r["Brand"] || "") || undefined,
+              brandName: String(r["Brand Name"] || r["Brand"] || "") || undefined,
               supplier: String(r["Goods From"] || r["Supplier"] || "") || undefined,
               goodsFrom: String(r["Goods From"] || r["Supplier"] || "") || undefined,
               purchaseDate: String(r["Purchase Date"] || "") || undefined,
@@ -212,7 +225,7 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
               hideCustomField3: hide3,
             };
 
-        const txn = {
+        const txn: InventoryTransaction = {
           id: newId(),
           productId: row.productId,
           warehouseId: row.warehouseId,
@@ -226,12 +239,31 @@ export function StockImportDialog({ open, onOpenChange, onSuccess }: Props) {
           createdAt: now,
         };
 
-        upsertInventoryStock(newStock);
-        insertInventoryTransaction(txn as any);
+        allStocks.push(newStock);
+        allTxns.push(txn);
         imported++;
       } catch (e) {
-        console.error("Error importing row:", e);
+        console.error("Error preparing import row:", e);
       }
+    }
+
+    // Update local Zustand state in one batch (no individual cloud calls)
+    useApp.setState((s) => {
+      const stockMap = new Map(s.inventoryStock.map((x) => [x.id, x]));
+      for (const stock of allStocks) stockMap.set(stock.id, stock);
+      return {
+        inventoryStock: Array.from(stockMap.values()),
+        inventoryTransactions: [...allTxns, ...s.inventoryTransactions],
+      };
+    });
+
+    // Batch-sync to Supabase using pre-fetched userId (no more individual auth calls)
+    try {
+      await cloud.batchUpsertInventoryStock(allStocks, userId);
+      await cloud.batchInsertInventoryTransactions(allTxns, userId);
+    } catch (err: any) {
+      console.error("[import batch sync]", err);
+      toast.error(`Import sync error: ${err.message || "Failed to save to cloud"}`);
     }
 
     toast.success(`Successfully imported ${imported} valid rows!`);

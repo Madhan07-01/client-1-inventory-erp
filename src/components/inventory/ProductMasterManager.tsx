@@ -101,12 +101,22 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
     setEditing(null);
   }
 
+  const upsertInventoryStock = useApp((s) => s.upsertInventoryStock);
+
   function handleArchive(p: ProductMasterEntry) {
-    if (!confirm(`Are you sure you want to archive "${p.description}"?`)) return;
+    if (!confirm(`Are you sure you want to archive "${p.description}"? All associated stock variants will also be archived.`)) return;
     const updated = { ...p, active: false };
     cloud.upsertProduct(updated).catch(console.error);
     upsertProduct(updated);
-    toast.success("Product archived");
+    
+    // Cascade to stock
+    inventoryStock.filter(s => s.productId === p.id && s.active !== false).forEach(s => {
+      const updatedStock = { ...s, active: false };
+      cloud.upsertInventoryStock(updatedStock).catch(console.error);
+      upsertInventoryStock(updatedStock);
+    });
+
+    toast.success("Product and its stock variants archived");
     setSelectedIds((prev) => {
       const next = new Set(prev);
       next.delete(p.id);
@@ -118,7 +128,15 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
     const updated = { ...p, active: true };
     cloud.upsertProduct(updated).catch(console.error);
     upsertProduct(updated);
-    toast.success("Product restored");
+
+    // Cascade to stock
+    inventoryStock.filter(s => s.productId === p.id && s.active === false).forEach(s => {
+      const updatedStock = { ...s, active: true };
+      cloud.upsertInventoryStock(updatedStock).catch(console.error);
+      upsertInventoryStock(updatedStock);
+    });
+
+    toast.success("Product and its stock variants restored");
     setSelectedIds((prev) => {
       const next = new Set(prev);
       next.delete(p.id);
@@ -127,29 +145,45 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
   }
 
   function handleBulkRestore() {
+    let restoredCount = 0;
     selectedIds.forEach((id) => {
       const p = products.find((x) => x.id === id);
       if (p && !p.active) {
         const updated = { ...p, active: true };
         cloud.upsertProduct(updated).catch(console.error);
         upsertProduct(updated);
+        restoredCount++;
+
+        inventoryStock.filter(s => s.productId === p.id && s.active === false).forEach(s => {
+          const updatedStock = { ...s, active: true };
+          cloud.upsertInventoryStock(updatedStock).catch(console.error);
+          upsertInventoryStock(updatedStock);
+        });
       }
     });
-    toast.success(`${selectedIds.size} products restored`);
+    toast.success(`${restoredCount} products and their stock variants restored`);
     setSelectedIds(new Set());
   }
 
   function handleBulkArchive() {
-    if (!confirm(`Are you sure you want to archive ${selectedIds.size} products?`)) return;
+    if (!confirm(`Are you sure you want to archive ${selectedIds.size} products? All associated stock variants will also be archived.`)) return;
+    let archivedCount = 0;
     selectedIds.forEach((id) => {
       const p = products.find((x) => x.id === id);
       if (p && p.active !== false) {
         const updated = { ...p, active: false };
         cloud.upsertProduct(updated).catch(console.error);
         upsertProduct(updated);
+        archivedCount++;
+
+        inventoryStock.filter(s => s.productId === p.id && s.active !== false).forEach(s => {
+          const updatedStock = { ...s, active: false };
+          cloud.upsertInventoryStock(updatedStock).catch(console.error);
+          upsertInventoryStock(updatedStock);
+        });
       }
     });
-    toast.success(`${selectedIds.size} products archived`);
+    toast.success(`${archivedCount} products and their stock variants archived`);
     setSelectedIds(new Set());
   }
 

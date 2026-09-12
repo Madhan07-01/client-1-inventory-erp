@@ -63,7 +63,6 @@ export interface ProductMasterEntry {
   qrValue?: string;
   // Hardware specifications
   itemType?: string;
-  brandName?: string;
   // Legacy fields — kept for backward compatibility with existing stored data.
   hsn?: string;
   gstPercent?: number;

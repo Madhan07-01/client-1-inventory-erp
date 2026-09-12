@@ -331,7 +331,7 @@ function InventoryPage() {
       grade: stock.grade || "-",
       thread: stock.thread || "-",
       finish: stock.finish || "-",
-      brandName: stock.brandName || product?.brandName || "-",
+      brandName: stock.brandName || "-",
       category: stock.category ?? "Acid",
       customField1: stock.customField1 || "",
       customField2: stock.customField2 || "",

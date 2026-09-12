@@ -24,7 +24,6 @@ type EditableProduct = {
   sku: string;
   description: string;
   hsn: string;
-  brandName: string;
   active: boolean;
   itemType: string;
 };
@@ -35,7 +34,6 @@ function emptyProduct(): EditableProduct {
     sku: "",
     description: "",
     hsn: "",
-    brandName: "",
     active: true,
     itemType: "Bolt Nut",
   };
@@ -60,7 +58,7 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
     const q = query.trim().toLowerCase();
     if (!q) return products;
     return products.filter((p) =>
-      [p.description, p.sku, p.itemType, p.hsn, p.brandName].join(" ").toLowerCase().includes(q),
+      [p.description, p.sku, p.itemType, p.hsn].join(" ").toLowerCase().includes(q),
     );
   }, [products, query]);
 
@@ -70,9 +68,8 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
       sku: p.sku ?? "",
       description: p.description,
       hsn: p.hsn ?? "",
-      brandName: p.brandName ?? "",
-      active: p.active ?? true,
-      itemType: p.itemType ?? "",
+      active: p.active !== false,
+      itemType: p.itemType ?? "Bolt Nut",
     });
   }
 
@@ -93,7 +90,6 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
       sku,
       description: editing.description.trim(),
       hsn: editing.hsn.trim() || undefined,
-      brandName: editing.brandName.trim() || undefined,
       barcodeValue: sku,
       qrValue: sku,
       active: editing.active,
@@ -422,14 +418,6 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Brand Name</Label>
-                  <Input
-                    value={editing.brandName}
-                    onChange={(e) => setEditing({ ...editing, brandName: e.target.value })}
-                    placeholder="e.g. TVS"
-                  />
-                </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Status</Label>
                   <select

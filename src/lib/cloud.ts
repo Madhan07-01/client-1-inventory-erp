@@ -55,7 +55,6 @@ export function rowToProduct(r: Row): ProductMasterEntry {
     qrValue: (r.qr_value as string) ?? undefined,
     active: (r.active as boolean) ?? true,
     itemType: (r.item_type as string) ?? undefined,
-    brandName: (r.brand_name as string) ?? undefined,
     // Legacy fields — read-only, backward compat with old records
     hsn: (r.hsn as string) ?? undefined,
     gstPercent: r.gst_percent != null ? Number(r.gst_percent) : undefined,
@@ -75,7 +74,6 @@ export function productToRow(p: ProductMasterEntry, userId: string) {
     qr_value: p.qrValue ?? null,
     active: p.active ?? true,
     item_type: p.itemType ?? null,
-    brand_name: p.brandName ?? null,
     // Legacy fields preserved for backward compat
     hsn: p.hsn ?? null,
     gst_percent: p.gstPercent != null ? p.gstPercent : 18,

@@ -6,7 +6,7 @@ import type { Warehouse, InventoryStock, InventoryTransaction } from "@/lib/type
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, ScanBarcode, ArrowDownUp, Download, ChevronDown, ChevronRight, Trash2, Printer, X, AlertTriangle } from "lucide-react";
+import { Plus, ScanBarcode, ArrowDownUp, Download, ChevronDown, ChevronRight, Trash2, Printer, X, AlertTriangle, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -103,9 +103,8 @@ function InventoryPage() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<string>("ledger");
   const [searchQuery, setSearchQuery] = useState("");
+  const [stockViewMode, setStockViewMode] = useState<"active" | "archived">("active");
   const [selectedStockIds, setSelectedStockIds] = useState<Set<string>>(new Set());
-  const [deleteTargetStock, setDeleteTargetStock] = useState<any | null>(null);
-  const [deleteBlockedStockMsg, setDeleteBlockedStockMsg] = useState<string | null>(null);
 
   const [adjustData, setAdjustData] = useState<AdjustData>(emptyAdjust);
 
@@ -307,8 +306,10 @@ function InventoryPage() {
   }
 
   // Build a nice flattened view with batch details
-  const stockView = inventoryStock.map((stock) => {
-    const product = activeProducts.find((p) => p.id === stock.productId);
+  const stockView = inventoryStock
+    .filter((s) => (stockViewMode === "active" ? s.active !== false : s.active === false))
+    .map((stock) => {
+    const product = settings.productMaster.find((p) => p.id === stock.productId);
     const wh = warehouses.find((w) => w.id === stock.warehouseId);
     const loc = wh?.locations?.find((l) => l.id === stock.locationId);
     return {
@@ -321,6 +322,7 @@ function InventoryPage() {
       warehouseName: wh?.name || "Unknown WH",
       locationName: loc?.name || "Unknown Loc",
       quantity: stock.quantity,
+      active: stock.active ?? true,
       // Batch fields
       lotNo: stock.lotNo || "-",
       supplier: stock.supplier || "-",
@@ -370,58 +372,61 @@ function InventoryPage() {
     });
   }
 
-  function isStockReferenced(row: any) {
-    return inventoryTransactions.some(
-      (t) =>
-        t.productId === row.productId &&
-        t.warehouseId === row.warehouseId &&
-        t.locationId === row.locationId
-    );
-  }
-
-  function handleStockDeleteClick(row: any) {
-    if (isStockReferenced(row)) {
-      setDeleteBlockedStockMsg(
-        `This stock entry for "${row.productName}" is referenced by inventory transactions. It cannot be deleted to preserve historical integrity.`
-      );
-    } else {
-      setDeleteTargetStock(row);
+  function handleArchiveStock(row: any) {
+    if (!window.confirm(`Are you sure you want to archive this stock entry for "${row.productName}"?`)) return;
+    const stock = inventoryStock.find((s) => s.id === row.id);
+    if (stock) {
+      const updated = { ...stock, active: false };
+      cloud.upsertInventoryStock(updated).catch(console.error);
+      upsertInventoryStock(updated);
+      toast.success("Ledger entry archived.");
+      setSelectedStockIds((prev) => {
+        const next = new Set(prev);
+        next.delete(row.id);
+        return next;
+      });
     }
   }
 
-  function executeStockDelete() {
-    if (!deleteTargetStock) return;
-    deleteInventoryStock(deleteTargetStock.id);
-    toast.success("Ledger entry deleted.");
-    setDeleteTargetStock(null);
-    setSelectedStockIds((prev) => {
-      const next = new Set(prev);
-      next.delete(deleteTargetStock.id);
-      return next;
-    });
+  function handleRestoreStock(row: any) {
+    const stock = inventoryStock.find((s) => s.id === row.id);
+    if (stock) {
+      const updated = { ...stock, active: true };
+      cloud.upsertInventoryStock(updated).catch(console.error);
+      upsertInventoryStock(updated);
+      toast.success("Ledger entry restored.");
+      setSelectedStockIds((prev) => {
+        const next = new Set(prev);
+        next.delete(row.id);
+        return next;
+      });
+    }
   }
 
-  function handleBulkStockDelete() {
-    let deletedCount = 0;
-    let skippedCount = 0;
-
-    if (!window.confirm(`Are you sure you want to delete ${selectedStockIds.size} selected stock entries? Referenced entries will be skipped.`)) return;
-
+  function handleBulkArchiveStock() {
+    if (!window.confirm(`Are you sure you want to archive ${selectedStockIds.size} selected stock entries?`)) return;
     selectedStockIds.forEach((id) => {
-      const row = stockView.find((s) => s.id === id);
-      if (row && isStockReferenced(row)) {
-        skippedCount++;
-      } else if (row) {
-        deleteInventoryStock(id);
-        deletedCount++;
+      const stock = inventoryStock.find((s) => s.id === id);
+      if (stock && stock.active !== false) {
+        const updated = { ...stock, active: false };
+        cloud.upsertInventoryStock(updated).catch(console.error);
+        upsertInventoryStock(updated);
       }
     });
+    toast.success(`${selectedStockIds.size} entries archived.`);
+    setSelectedStockIds(new Set());
+  }
 
-    if (skippedCount > 0) {
-      toast.warning(`Deleted ${deletedCount} entries. ${skippedCount} skipped (referenced).`);
-    } else {
-      toast.success(`Deleted ${deletedCount} entries.`);
-    }
+  function handleBulkRestoreStock() {
+    selectedStockIds.forEach((id) => {
+      const stock = inventoryStock.find((s) => s.id === id);
+      if (stock && stock.active === false) {
+        const updated = { ...stock, active: true };
+        cloud.upsertInventoryStock(updated).catch(console.error);
+        upsertInventoryStock(updated);
+      }
+    });
+    toast.success(`${selectedStockIds.size} entries restored.`);
     setSelectedStockIds(new Set());
   }
 
@@ -666,12 +671,26 @@ function InventoryPage() {
             )}
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div className="flex bg-slate-100 p-1 rounded-md mb-2 sm:mb-0">
+                <button
+                  className={`px-3 py-1.5 text-sm font-medium rounded-sm transition-colors ${stockViewMode === "active" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
+                  onClick={() => { setStockViewMode("active"); setSelectedStockIds(new Set()); }}
+                >
+                  Active
+                </button>
+                <button
+                  className={`px-3 py-1.5 text-sm font-medium rounded-sm transition-colors ${stockViewMode === "archived" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
+                  onClick={() => { setStockViewMode("archived"); setSelectedStockIds(new Set()); }}
+                >
+                  Deleted (Archived)
+                </button>
+              </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Input
                   placeholder="Search by SKU, Product, Brand, Size, Grade, Lot..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full sm:w-80"
+                  className="w-full sm:w-80 bg-white"
                 />
               </div>
             </div>
@@ -681,9 +700,15 @@ function InventoryPage() {
                 <div className="fixed bottom-0 left-0 right-0 sm:static sm:bottom-auto bg-slate-800 text-white p-3 sm:border-b flex items-center justify-between gap-4 z-50">
                   <div className="text-sm font-medium">{selectedStockIds.size} Selected</div>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" variant="destructive" onClick={handleBulkStockDelete} className="whitespace-nowrap">
-                      Delete
-                    </Button>
+                    {stockViewMode === "active" ? (
+                      <Button size="sm" variant="destructive" onClick={handleBulkArchiveStock} className="whitespace-nowrap">
+                        Archive Selected
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="secondary" onClick={handleBulkRestoreStock} className="whitespace-nowrap text-black">
+                        Restore Selected
+                      </Button>
+                    )}
                     <Button size="sm" variant="ghost" onClick={() => setSelectedStockIds(new Set())} className="text-slate-300 hover:text-white">
                       <X className="h-4 w-4 mr-1" /> Clear
                     </Button>
@@ -872,15 +897,27 @@ function InventoryPage() {
                                 >
                                   <Download className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  title="Delete Stock Record"
-                                  className="text-red-500 hover:text-red-700"
-                                  onClick={() => handleStockDeleteClick(row)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                {row.active !== false ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Archive Stock Record"
+                                    className="text-red-500 hover:text-red-700"
+                                    onClick={() => handleArchiveStock(row)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Restore Stock Record"
+                                    className="text-green-600 hover:text-green-700"
+                                    onClick={() => handleRestoreStock(row)}
+                                  >
+                                    <RotateCcw className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -963,49 +1000,6 @@ function InventoryPage() {
               <Download className="w-4 h-4" />
               Download CSV
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteTargetStock} onOpenChange={(o) => !o && setDeleteTargetStock(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              Delete Stock Entry
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm">
-              Are you sure you want to delete the ledger entry for <strong>{deleteTargetStock?.productName}</strong>?
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              This action cannot be undone.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTargetStock(null)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={executeStockDelete}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Blocked Dialog */}
-      <Dialog open={!!deleteBlockedStockMsg} onOpenChange={(o) => !o && setDeleteBlockedStockMsg(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Cannot Delete Stock Entry</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            <p className="text-sm">{deleteBlockedStockMsg}</p>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setDeleteBlockedStockMsg(null)}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

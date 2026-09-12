@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Search, Printer, Download, X, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Printer, Download, X, AlertTriangle, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { cloud } from "@/lib/cloud";
 import { printProductLabel, downloadProductLabel } from "@/components/ProductLabelPdf";
@@ -49,18 +49,20 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
   const deleteProductMaster = useApp((s) => s.deleteProductMaster);
 
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"active" | "archived">("active");
   const [editing, setEditing] = useState<EditableProduct | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [deleteTarget, setDeleteTarget] = useState<ProductMasterEntry | null>(null);
-  const [deleteBlockedMsg, setDeleteBlockedMsg] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
+    let result = products.filter(p => viewMode === "active" ? (p.active !== false) : (p.active === false));
     const q = query.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((p) =>
-      [p.description, p.sku, p.itemType, p.hsn].join(" ").toLowerCase().includes(q),
-    );
-  }, [products, query]);
+    if (q) {
+      result = result.filter((p) =>
+        [p.description, p.sku, p.itemType, p.hsn].join(" ").toLowerCase().includes(q),
+      );
+    }
+    return result;
+  }, [products, query, viewMode]);
 
   function openEdit(p: ProductMasterEntry) {
     setEditing({
@@ -99,79 +101,55 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
     setEditing(null);
   }
 
-  function isProductReferenced(productId: string) {
-    const inStock = inventoryStock.some((s) => s.productId === productId);
-    const inInvoices = invoices.some((inv) => inv.items.some((item) => item.productId === productId));
-    const inQuotations = quotations.some((q) => q.items.some((item) => item.productId === productId));
-    return inStock || inInvoices || inQuotations;
-  }
-
-  function handleDeleteClick(p: ProductMasterEntry) {
-    if (isProductReferenced(p.id)) {
-      setDeleteBlockedMsg(`"${p.description}" is referenced in invoices, quotations, or stock records. It cannot be deleted. You can mark it as Inactive instead.`);
-    } else {
-      setDeleteTarget(p);
-    }
-  }
-
-  function executeDelete() {
-    if (!deleteTarget) return;
-    deleteProductMaster(deleteTarget.id);
-    toast.success("Product deleted successfully");
-    setDeleteTarget(null);
+  function handleArchive(p: ProductMasterEntry) {
+    if (!confirm(`Are you sure you want to archive "${p.description}"?`)) return;
+    const updated = { ...p, active: false };
+    cloud.upsertProduct(updated).catch(console.error);
+    upsertProduct(updated);
+    toast.success("Product archived");
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.delete(deleteTarget.id);
+      next.delete(p.id);
       return next;
     });
   }
 
-  function handleBulkActivate() {
+  function handleRestore(p: ProductMasterEntry) {
+    const updated = { ...p, active: true };
+    cloud.upsertProduct(updated).catch(console.error);
+    upsertProduct(updated);
+    toast.success("Product restored");
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(p.id);
+      return next;
+    });
+  }
+
+  function handleBulkRestore() {
     selectedIds.forEach((id) => {
       const p = products.find((x) => x.id === id);
       if (p && !p.active) {
         const updated = { ...p, active: true };
         cloud.upsertProduct(updated).catch(console.error);
-        upsertProduct({ ...updated, active: true });
+        upsertProduct(updated);
       }
     });
-    toast.success(`${selectedIds.size} products activated`);
+    toast.success(`${selectedIds.size} products restored`);
     setSelectedIds(new Set());
   }
 
-  function handleBulkDeactivate() {
+  function handleBulkArchive() {
+    if (!confirm(`Are you sure you want to archive ${selectedIds.size} products?`)) return;
     selectedIds.forEach((id) => {
       const p = products.find((x) => x.id === id);
-      if (p && p.active) {
+      if (p && p.active !== false) {
         const updated = { ...p, active: false };
         cloud.upsertProduct(updated).catch(console.error);
-        upsertProduct({ ...updated, active: false });
+        upsertProduct(updated);
       }
     });
-    toast.success(`${selectedIds.size} products deactivated`);
-    setSelectedIds(new Set());
-  }
-
-  function handleBulkDelete() {
-    let deletedCount = 0;
-    let skippedCount = 0;
-    
-    if (!confirm(`Are you sure you want to delete ${selectedIds.size} selected products? Referenced products will be skipped.`)) return;
-
-    selectedIds.forEach((id) => {
-      if (isProductReferenced(id)) {
-        skippedCount++;
-      } else {
-        deleteProductMaster(id);
-        deletedCount++;
-      }
-    });
-
-    if (skippedCount > 0) {
-      toast.warning(`Deleted ${deletedCount} products. ${skippedCount} skipped (referenced).`);
-    } else {
-      toast.success(`Deleted ${deletedCount} products.`);
-    }
+    toast.success(`${selectedIds.size} products archived`);
     setSelectedIds(new Set());
   }
 
@@ -203,15 +181,15 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
           <div className="fixed bottom-0 left-0 right-0 sm:static sm:bottom-auto bg-slate-800 text-white p-3 sm:rounded-lg shadow-lg z-50 flex items-center justify-between gap-4 sm:mb-4">
             <div className="text-sm font-medium">{selectedIds.size} Selected</div>
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-              <Button size="sm" variant="secondary" onClick={handleBulkActivate} className="whitespace-nowrap">
-                Activate
-              </Button>
-              <Button size="sm" variant="secondary" onClick={handleBulkDeactivate} className="whitespace-nowrap">
-                Deactivate
-              </Button>
-              <Button size="sm" variant="destructive" onClick={handleBulkDelete} className="whitespace-nowrap">
-                Delete
-              </Button>
+              {viewMode === "active" ? (
+                <Button size="sm" variant="destructive" onClick={handleBulkArchive} className="whitespace-nowrap">
+                  Archive Selected
+                </Button>
+              ) : (
+                <Button size="sm" variant="secondary" onClick={handleBulkRestore} className="whitespace-nowrap text-black">
+                  Restore Selected
+                </Button>
+              )}
               <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())} className="text-slate-300 hover:text-white">
                 <X className="h-4 w-4 mr-1" /> Clear
               </Button>
@@ -220,14 +198,30 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
         )}
 
         <div className="rounded-lg border bg-white overflow-x-auto w-full">
-          <div className="px-4 py-3 border-b flex items-center gap-2">
-            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by description or SKU..."
-              className="bg-transparent outline-none text-sm flex-1"
-            />
+          <div className="px-4 py-3 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex bg-slate-100 p-1 rounded-md">
+              <button
+                className={`px-3 py-1.5 text-sm font-medium rounded-sm transition-colors ${viewMode === "active" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
+                onClick={() => { setViewMode("active"); setSelectedIds(new Set()); }}
+              >
+                Active
+              </button>
+              <button
+                className={`px-3 py-1.5 text-sm font-medium rounded-sm transition-colors ${viewMode === "archived" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
+                onClick={() => { setViewMode("archived"); setSelectedIds(new Set()); }}
+              >
+                Deleted (Archived)
+              </button>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto bg-slate-50 px-3 py-1.5 rounded-md border">
+              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search description or SKU..."
+                className="bg-transparent outline-none text-sm flex-1 min-w-[200px]"
+              />
+            </div>
           </div>
           {filtered.length === 0 ? (
             <div className="p-10 text-center text-sm text-muted-foreground">
@@ -335,9 +329,15 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
                         <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(p)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {p.active !== false ? (
+                          <Button variant="ghost" size="sm" onClick={() => handleArchive(p)} title="Archive Product">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        ) : (
+                          <Button variant="ghost" size="sm" onClick={() => handleRestore(p)} title="Restore Product">
+                            <RotateCcw className="h-4 w-4 text-green-600" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -441,48 +441,6 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              Delete Product
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm">
-              Are you sure you want to delete <strong>{deleteTarget?.description}</strong>?
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              This action cannot be undone.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={executeDelete}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Blocked Dialog */}
-      <Dialog open={!!deleteBlockedMsg} onOpenChange={(o) => !o && setDeleteBlockedMsg(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Cannot Delete Product</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            <p className="text-sm">{deleteBlockedMsg}</p>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setDeleteBlockedMsg(null)}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

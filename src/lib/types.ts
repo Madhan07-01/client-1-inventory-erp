@@ -207,6 +207,7 @@ export interface InventoryStock {
   locationId: string;
   quantity: number;
   updatedAt?: string;
+  active?: boolean;
   // --- Batch / variant fields (Warehouse Ledger Adjustment) ---
   lotNo?: string;
   brandName?: string;

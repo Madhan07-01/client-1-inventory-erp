@@ -355,7 +355,7 @@ export const useApp = create<AppState>()((set, get) => ({
       };
 
       // ─── Revert old invoice stock (edit path) ──────────────────────────────
-      if (oldInv && !oldInv.isDraft && oldInv.dispatchWarehouseId && oldInv.dispatchLocationId) {
+      if (oldInv && !oldInv.isDraft && oldInv.lifecycle !== "CANCELLED" && oldInv.dispatchWarehouseId && oldInv.dispatchLocationId) {
         for (const item of oldInv.items) {
           if (!item.quantity) continue;
           const p = s.settings.productMaster.find(
@@ -375,7 +375,7 @@ export const useApp = create<AppState>()((set, get) => ({
       }
 
       // ─── Apply new invoice deductions (FIFO spill-over) ────────────────────
-      if (!inv.isDraft && inv.dispatchWarehouseId && inv.dispatchLocationId) {
+      if (!inv.isDraft && inv.lifecycle !== "CANCELLED" && inv.dispatchWarehouseId && inv.dispatchLocationId) {
         for (const item of inv.items) {
           if (!item.quantity) continue;
           const p = s.settings.productMaster.find(
@@ -405,7 +405,7 @@ export const useApp = create<AppState>()((set, get) => ({
       const nextTxns = [...s.inventoryTransactions];
       const now = new Date().toISOString();
 
-      if (inv && !inv.isDraft && inv.dispatchWarehouseId && inv.dispatchLocationId) {
+      if (inv && !inv.isDraft && inv.lifecycle !== "CANCELLED" && inv.dispatchWarehouseId && inv.dispatchLocationId) {
         for (const item of inv.items) {
           if (!item.quantity) continue;
           const p = s.settings.productMaster.find(

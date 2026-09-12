@@ -110,7 +110,7 @@ function InvoicesList() {
   function handleCancel(id: string) {
     const src = invoices.find((i) => i.id === id);
     if (!src) return;
-    saveInvoice({ ...src, lifecycle: "CANCELLED" });
+    saveInvoice({ ...src, lifecycle: "CANCELLED" }, src);
     toast.success("Invoice cancelled");
   }
 

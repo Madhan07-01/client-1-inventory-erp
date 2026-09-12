@@ -87,6 +87,70 @@ export function buildBlankInvoice(args: {
   };
 }
 
+function ItemDescriptionCombobox({ 
+  value, 
+  onValueChange, 
+  activeProducts 
+}: { 
+  value: string; 
+  onValueChange: (val: string) => void;
+  activeProducts: { p: any; avail: number; }[];
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+
+  // Sync internal query when value changes from outside
+  useEffect(() => {
+    setQuery(value || "");
+  }, [value]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return activeProducts.slice(0, 50); // limit to first 50 when empty
+    return activeProducts.filter(({ p }) => 
+      p.description.toLowerCase().includes(q) || 
+      (p.sku && p.sku.toLowerCase().includes(q))
+    ).slice(0, 50);
+  }, [query, activeProducts]);
+
+  return (
+    <div className="relative w-full">
+      <Input
+        placeholder="Search product..."
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 200)}
+        className="w-full"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-50 top-full left-0 mt-1 w-full sm:w-[400px] bg-white border rounded-md shadow-lg max-h-64 overflow-y-auto">
+          {filtered.map(({ p, avail }) => (
+            <button
+              key={p.id}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-muted focus:bg-muted outline-none border-b last:border-b-0"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onValueChange(p.description);
+                setQuery(p.description);
+                setOpen(false);
+              }}
+            >
+              <div className="font-medium">{p.description} {p.sku ? `(${p.sku})` : ""}</div>
+              <div className={`text-xs ${avail > 0 ? "text-emerald-600" : "text-destructive"}`}>
+                {avail > 0 ? `Stock: ${avail}` : "Out of stock"}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "create" | "edit" }) {
   const navigate = useNavigate();
   const settings = useApp((s) => s.settings);
@@ -999,8 +1063,9 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                 <tr key={it.id} className="border-t">
                   <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
                   <td className="px-2 py-1">
-                    <Select
-                      value={it.description || undefined}
+                    <ItemDescriptionCombobox
+                      value={it.description || ""}
+                      activeProducts={sortedActiveProducts}
                       onValueChange={(val) => {
                         updateItem(it.id, { description: val, stockBatchId: undefined });
                         applyProductByDescription(it.id, val);
@@ -1013,18 +1078,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                            }
                         }
                       }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select Product" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sortedActiveProducts.map(({ p, avail }) => (
-                           <SelectItem key={p.id} value={p.description}>
-                             {p.description} {p.sku ? `(${p.sku})` : ""} {avail > 0 ? `- Stock: ${avail}` : `- Out of stock`}
-                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                     {(() => {
                       if (!it.description) return null;
                       const avail = getAvailableStock(it.description);

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, Fragment } from "react";
+import { useEffect, useMemo, useState, Fragment, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,58 +99,81 @@ function ItemDescriptionCombobox({
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null);
 
   // Sync internal query when value changes from outside
   useEffect(() => {
     setQuery(value || "");
   }, [value]);
 
+  // Recompute position whenever the dropdown opens or window scrolls/resizes
+  useEffect(() => {
+    if (!open || !inputRef.current) { setDropdownRect(null); return; }
+    const update = () => {
+      const rect = inputRef.current!.getBoundingClientRect();
+      setDropdownRect({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 380) });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return activeProducts.slice(0, 50); // limit to first 50 when empty
-    return activeProducts.filter(({ p }) => 
-      p.description.toLowerCase().includes(q) || 
+    if (!q) return activeProducts.slice(0, 50);
+    return activeProducts.filter(({ p }) =>
+      p.description.toLowerCase().includes(q) ||
       (p.sku && p.sku.toLowerCase().includes(q))
     ).slice(0, 50);
   }, [query, activeProducts]);
 
   return (
-    <div className="relative w-full">
-      <Input
+    <>
+      <input
+        ref={inputRef}
         placeholder="Search product..."
         value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setOpen(true);
-        }}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 200)}
-        className="w-full"
+        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       />
-      {open && filtered.length > 0 && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-full sm:w-[400px] bg-white border rounded-md shadow-lg max-h-64 overflow-y-auto">
+      {open && filtered.length > 0 && dropdownRect && createPortal(
+        <div
+          style={{
+            position: "fixed",
+            top: dropdownRect.top,
+            left: dropdownRect.left,
+            width: dropdownRect.width,
+            zIndex: 9999,
+          }}
+          className="bg-white border rounded-md shadow-2xl max-h-72 overflow-y-auto"
+        >
           {filtered.map(({ p, avail }) => (
             <button
               key={p.id}
               className="w-full text-left px-3 py-2 text-sm hover:bg-muted focus:bg-muted outline-none border-b last:border-b-0"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                onValueChange(p.description);
-                setQuery(p.description);
-                setOpen(false);
-              }}
+              onClick={() => { onValueChange(p.description); setQuery(p.description); setOpen(false); }}
             >
-              <div className="font-medium">{p.description} {p.sku ? `(${p.sku})` : ""}</div>
-              <div className={`text-xs ${avail > 0 ? "text-emerald-600" : "text-destructive"}`}>
-                {avail > 0 ? `Stock: ${avail}` : "Out of stock"}
+              <div className="font-medium">{p.description}{p.sku ? ` (${p.sku})` : ""}</div>
+              <div className={`text-xs mt-0.5 ${avail > 0 ? "text-emerald-600" : "text-destructive"}`}>
+                {avail > 0 ? `✓ Available: ${avail} units` : "✗ Out of stock"}
               </div>
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
+
 
 export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "create" | "edit" }) {
   const navigate = useNavigate();
@@ -215,16 +239,34 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
     return list;
   }, [invoices, quotations, activeProducts]);
 
-  // Get batches for a given product across warehouses
-  function getBatchesForProduct(productId: string): InventoryStock[] {
-    return inventoryStock.filter(
+  // Get batches for a given product across warehouses with REAL-TIME available quantities.
+  // For new/draft invoices, quantities already allocated to other rows in this invoice
+  // are subtracted so the batch picker shows the true remaining stock per batch.
+  function getBatchesForProduct(productId: string, excludeItemId?: string): InventoryStock[] {
+    const candidates = inventoryStock.filter(
       (s) =>
         s.productId === productId &&
         s.quantity > 0 &&
         (inv.dispatchWarehouseId ? s.warehouseId === inv.dispatchWarehouseId : true) &&
         (inv.dispatchLocationId ? s.locationId === inv.dispatchLocationId : true),
     );
+
+    // For new/draft invoices, compute how many units of each batch are already
+    // reserved by other rows in the current in-progress invoice.
+    if (inv.isDraft || mode === "create") {
+      return candidates
+        .map((batch) => {
+          const reservedByOtherRows = inv.items
+            .filter((it) => it.id !== excludeItemId && it.stockBatchId === batch.id && it.quantity)
+            .reduce((acc, it) => acc + (it.quantity ?? 0), 0);
+          return { ...batch, quantity: Math.max(0, batch.quantity - reservedByOtherRows) };
+        })
+        .filter((b) => b.quantity > 0);
+    }
+
+    return candidates;
   }
+
 
   function getOldestBatchIdForProduct(productId: string): string | undefined {
     const batches = getBatchesForProduct(productId);
@@ -252,7 +294,21 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
     return `${parts.join(" · ")} | Qty: ${batch.quantity}`;
   }
 
-  const getAvailableStock = (description: string) => {
+  /**
+   * Returns the *real-time available* stock for a product description.
+   *
+   * Logic:
+   *  1. Sum raw inventoryStock quantities (already deducted when previous
+   *     ACTIVE/saved invoices were committed).
+   *  2. For NEW invoices (mode=create OR draft), subtract the quantities
+   *     the user has ALREADY typed into OTHER rows of this very invoice
+   *     (the current row's own qty is excluded when checking that row's
+   *     over-allocation so the user can see what's still free).
+   *  3. For EDIT invoices, the store has already REVERTED the old invoice's
+   *     stock during edit initialisation, so inventoryStock already reflects
+   *     the reverted amounts — no double-subtraction needed.
+   */
+  const getAvailableStock = (description: string, excludeItemId?: string) => {
     const p = activeProducts.find(
       (x) => x.description.trim().toLowerCase() === description.trim().toLowerCase(),
     );
@@ -264,13 +320,25 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
     if (inv.dispatchLocationId) {
       relevantStock = relevantStock.filter((s) => s.locationId === inv.dispatchLocationId);
     }
-    return relevantStock.reduce((acc, s) => acc + s.quantity, 0);
+    const rawTotal = relevantStock.reduce((acc, s) => acc + s.quantity, 0);
+
+    // For new/draft invoices, subtract quantities already allocated to other rows
+    // of this in-progress invoice (they haven't been deducted from the store yet).
+    if (inv.isDraft || mode === "create") {
+      const usedByOtherRows = inv.items
+        .filter((it) => it.id !== excludeItemId && it.description.trim().toLowerCase() === description.trim().toLowerCase() && it.quantity)
+        .reduce((acc, it) => acc + (it.quantity ?? 0), 0);
+      return Math.max(0, rawTotal - usedByOtherRows);
+    }
+
+    return rawTotal;
   };
 
   const hasInvalidStock = useMemo(() => {
     return inv.items.some((it) => {
       if (!it.description || it.quantity === null) return false;
-      const avail = getAvailableStock(it.description);
+      // Pass the current item's id so its own qty is not subtracted from the available total
+      const avail = getAvailableStock(it.description, it.id);
       return avail !== null && it.quantity > avail;
     });
   }, [inv.items, activeProducts, inventoryStock, inv.dispatchWarehouseId, inv.dispatchLocationId]);
@@ -284,7 +352,8 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
        if (a.avail <= 0 && b.avail > 0) return 1;
        return a.p.description.localeCompare(b.p.description);
     });
-  }, [activeProducts, inventoryStock, inv.dispatchWarehouseId, inv.dispatchLocationId]);
+  }, [activeProducts, inventoryStock, inv.items, inv.dispatchWarehouseId, inv.dispatchLocationId]);
+
 
   // Apply a specific inventory batch to an invoice item
   function applyBatchToItem(itemId: string, batch: InventoryStock) {
@@ -495,7 +564,8 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
     );
     if (!match) return;
 
-    const available = getAvailableStock(match.description);
+    // Exclude this item's own row (it hasn't typed a qty yet, so don't penalise it)
+    const available = getAvailableStock(match.description, itemId);
     if (available !== null && available <= 0) {
        toast.error(`❌ Product Out of Stock: ${match.description}`);
        updateItem(itemId, blankItem()); // Clear the row
@@ -1081,7 +1151,8 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                     />
                     {(() => {
                       if (!it.description) return null;
-                      const avail = getAvailableStock(it.description);
+                      // Exclude this row's own qty so the display shows remaining stock for THIS row
+                      const avail = getAvailableStock(it.description, it.id);
                       if (avail === null) return null;
                       const isOutOfStock = avail <= 0;
                       
@@ -1089,7 +1160,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                       if (it.stockBatchId) {
                          const b = inventoryStock.find(s => s.id === it.stockBatchId);
                          if (b) {
-                           batchInfo = <span className="text-muted-foreground ml-2">(Allocated: {b.lotNo ? `Lot ${b.lotNo}` : b.warehouseId}) <button type="button" onClick={() => { setBatchPickerItemId(it.id); setBatchPickerProductId(b.productId); }} className="text-blue-500 hover:underline ml-1">Change Variant</button></span>;
+                           batchInfo = <span className="text-muted-foreground ml-2">(Batch: {b.lotNo ? `Lot ${b.lotNo}` : b.size || b.grade || "Default"}) <button type="button" onClick={() => { setBatchPickerItemId(it.id); setBatchPickerProductId(b.productId); }} className="text-blue-500 hover:underline ml-1">Change Variant</button></span>;
                          }
                       } else if (!isOutOfStock) {
                          const match = activeProducts.find(p => p.description === it.description);
@@ -1100,7 +1171,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
 
                       return (
                         <div className={`text-[10px] mt-1 font-medium ${isOutOfStock ? "text-destructive" : "text-emerald-600"} flex items-center`}>
-                          <span>Available: {avail} Units</span>
+                          <span>{isOutOfStock ? "❌ Out of stock" : `✓ Available: ${avail} units`}</span>
                           {batchInfo}
                         </div>
                       );

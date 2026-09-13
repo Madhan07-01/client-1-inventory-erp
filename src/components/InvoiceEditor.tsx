@@ -90,12 +90,16 @@ export function buildBlankInvoice(args: {
 
 function ItemDescriptionCombobox({ 
   value, 
-  onValueChange, 
-  activeProducts 
+  onValueChange,
+  onInputChange,
+  activeProducts,
+  getAvailableStock
 }: { 
   value: string; 
   onValueChange: (val: string) => void;
-  activeProducts: { p: any; avail: number; }[];
+  onInputChange?: (val: string) => void;
+  activeProducts: any[];
+  getAvailableStock: (desc: string) => number | null;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -125,12 +129,25 @@ function ItemDescriptionCombobox({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return activeProducts.slice(0, 50);
-    return activeProducts.filter(({ p }) =>
-      p.description.toLowerCase().includes(q) ||
-      (p.sku && p.sku.toLowerCase().includes(q))
-    ).slice(0, 50);
-  }, [query, activeProducts]);
+    
+    // Sort and attach live availability
+    let list = activeProducts;
+    if (q) {
+      list = list.filter(p =>
+        p.description.toLowerCase().includes(q) ||
+        (p.sku && p.sku.toLowerCase().includes(q))
+      );
+    }
+    
+    return list.map(p => {
+      const avail = getAvailableStock(p.description) || 0;
+      return { p, avail };
+    }).sort((a, b) => {
+      if (a.avail > 0 && b.avail <= 0) return -1;
+      if (a.avail <= 0 && b.avail > 0) return 1;
+      return a.p.description.localeCompare(b.p.description);
+    }).slice(0, 50);
+  }, [query, activeProducts, getAvailableStock]);
 
   return (
     <>
@@ -138,7 +155,12 @@ function ItemDescriptionCombobox({
         ref={inputRef}
         placeholder="Search product..."
         value={query}
-        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        onChange={(e) => { 
+          const val = e.target.value;
+          setQuery(val); 
+          setOpen(true); 
+          if (onInputChange) onInputChange(val);
+        }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 200)}
         className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -247,8 +269,8 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       (s) =>
         s.productId === productId &&
         s.quantity > 0 &&
-        (inv.dispatchWarehouseId ? s.warehouseId === inv.dispatchWarehouseId : true) &&
-        (inv.dispatchLocationId ? s.locationId === inv.dispatchLocationId : true),
+        (inv.dispatchWarehouseId && inv.manualDispatchOverride ? s.warehouseId === inv.dispatchWarehouseId : true) &&
+        (inv.dispatchLocationId && inv.manualDispatchOverride ? s.locationId === inv.dispatchLocationId : true),
     );
 
     // For new/draft invoices, compute how many units of each batch are already
@@ -314,10 +336,10 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
     );
     if (!p) return null;
     let relevantStock = inventoryStock.filter((s) => s.productId === p.id);
-    if (inv.dispatchWarehouseId) {
+    if (inv.dispatchWarehouseId && inv.manualDispatchOverride) {
       relevantStock = relevantStock.filter((s) => s.warehouseId === inv.dispatchWarehouseId);
     }
-    if (inv.dispatchLocationId) {
+    if (inv.dispatchLocationId && inv.manualDispatchOverride) {
       relevantStock = relevantStock.filter((s) => s.locationId === inv.dispatchLocationId);
     }
     const rawTotal = relevantStock.reduce((acc, s) => acc + s.quantity, 0);
@@ -1135,13 +1157,23 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                   <td className="px-2 py-1">
                     <ItemDescriptionCombobox
                       value={it.description || ""}
-                      activeProducts={sortedActiveProducts}
+                      activeProducts={activeProducts}
+                      getAvailableStock={(desc) => getAvailableStock(desc, it.id)}
+                      onInputChange={(val) => {
+                        updateItem(it.id, { 
+                          description: val, 
+                          stockBatchId: undefined, 
+                          productId: undefined, 
+                          warehouseId: undefined, 
+                          lotNumber: undefined 
+                        });
+                      }}
                       onValueChange={(val) => {
                         updateItem(it.id, { description: val, stockBatchId: undefined });
                         applyProductByDescription(it.id, val);
                         const match = activeProducts.find(p => p.description === val);
                         if (match) {
-                           const batches = getBatchesForProduct(match.id);
+                           const batches = getBatchesForProduct(match.id, it.id);
                            if (batches.length > 1) {
                               setBatchPickerItemId(it.id);
                               setBatchPickerProductId(match.id);

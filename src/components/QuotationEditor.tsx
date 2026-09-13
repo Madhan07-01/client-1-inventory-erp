@@ -210,15 +210,15 @@ export function QuotationEditor({
     if (product) {
       parts.push(`SKU: ${product.sku || product.description}`);
     }
-    if (batch.size) parts.push(`Size: ${batch.size}`);
-    if (batch.grade) parts.push(`Grade: ${batch.grade}`);
-    if (batch.thread) parts.push(`Thread: ${batch.thread}`);
-    if (batch.threadType) parts.push(`Type: ${batch.threadType}`);
-    if (batch.finish) parts.push(`Finish: ${batch.finish}`);
     if (batch.lotNo) parts.push(`Lot: ${batch.lotNo}`);
+    if (batch.grade) parts.push(`Grade: ${batch.grade}`);
+    const threadType = batch.thread || batch.threadType;
+    if (threadType) parts.push(`Thread Type: ${threadType}`);
+    if (batch.category) parts.push(`Status: ${batch.category}`);
+    if (batch.size) parts.push(`Size: ${batch.size}`);
+    if (batch.finish) parts.push(`Finish: ${batch.finish}`);
     if (batch.brandName) parts.push(`Brand: ${batch.brandName}`);
     if (batch.supplier) parts.push(`Supplier: ${batch.supplier}`);
-    if (batch.category) parts.push(`Status: ${batch.category}`);
     if (!batch.hideCustomField1 && batch.customField1) parts.push(`Spec1: ${batch.customField1}`);
     if (!batch.hideCustomField2 && batch.customField2) parts.push(`Spec2: ${batch.customField2}`);
     if (!batch.hideCustomField3 && batch.customField3) parts.push(`Spec3: ${batch.customField3}`);

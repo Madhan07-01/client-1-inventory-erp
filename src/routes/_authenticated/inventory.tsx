@@ -970,12 +970,14 @@ function InventoryPage() {
                             <tr key={`${row.id}-detail`} className="bg-muted/10">
                               <td colSpan={11} className="px-4 py-3 sm:px-8">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-muted-foreground">
-                                  <div><span className="font-medium text-foreground">Supplier:</span> {row.supplier}</div>
-                                  <div><span className="font-medium text-foreground">Purchase Date:</span> {row.purchaseDate}</div>
-                                  <div><span className="font-medium text-foreground">Purchase Rate:</span> {row.purchaseRate ? `₹${row.purchaseRate}` : "-"}</div>
-                                  <div><span className="font-medium text-foreground">Ref:</span> {row.purchaseRef}</div>
-                                  <div><span className="font-medium text-foreground">Thread:</span> {row.thread}</div>
-                                  <div><span className="font-medium text-foreground">Finish:</span> {row.finish}</div>
+                                  {row.brandName && row.brandName !== "-" && <div><span className="font-medium text-foreground">Brand:</span> {row.brandName}</div>}
+                                  {row.supplier && row.supplier !== "-" && <div><span className="font-medium text-foreground">Supplier:</span> {row.supplier}</div>}
+                                  <div><span className="font-medium text-foreground">Status:</span> {row.category || "Acid"}</div>
+                                  {(row.thread || (row as any).threadType) && (row.thread !== "-" || (row as any).threadType !== "-") && <div><span className="font-medium text-foreground">Thread Type:</span> {row.thread || (row as any).threadType}</div>}
+                                  {row.finish && row.finish !== "-" && <div><span className="font-medium text-foreground">Finish:</span> {row.finish}</div>}
+                                  {row.purchaseDate && row.purchaseDate !== "-" && <div><span className="font-medium text-foreground">Purchase Date:</span> {row.purchaseDate}</div>}
+                                  {row.purchaseRate && row.purchaseRate !== "-" && <div><span className="font-medium text-foreground">Purchase Rate:</span> {`₹${row.purchaseRate}`}</div>}
+                                  {row.purchaseRef && row.purchaseRef !== "-" && <div><span className="font-medium text-foreground">Ref:</span> {row.purchaseRef}</div>}
                                   {row.customField1 && <div><span className="font-medium text-foreground">Spec 1:</span> {row.customField1}</div>}
                                   {row.customField2 && <div><span className="font-medium text-foreground">Spec 2:</span> {row.customField2}</div>}
                                   {row.customField3 && <div><span className="font-medium text-foreground">Spec 3:</span> {row.customField3}</div>}

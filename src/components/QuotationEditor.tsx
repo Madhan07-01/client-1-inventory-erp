@@ -51,7 +51,7 @@ function blankItem(): InvoiceItem {
     id: newId(),
     description: "",
     condition: "",
-    hsn: "",
+    hsn: "7318",
     quantity: null,
     unit: "",
     price: null,
@@ -273,7 +273,7 @@ export function QuotationEditor({
           const newItem: InvoiceItem = {
             ...blankItem(),
             description: match.description,
-            hsn: match.hsn ?? "",
+            hsn: match.hsn || "7318",
             price: match.defaultRate ?? null,
             gstPercent: match.gstPercent ?? 0,
             quantity: 1,
@@ -348,9 +348,10 @@ export function QuotationEditor({
     if (!match) return;
     const p: Partial<InvoiceItem> = {
       description: match.description,
-      hsn: match.hsn,
-      gstPercent: match.gstPercent,
+      hsn: match.hsn || "7318",
+      gstPercent: match.gstPercent ?? 0,
       stockBatchId: explicitBatchId || undefined,
+      productId: match.id,
     };
     if (match.defaultRate != null) p.price = match.defaultRate;
     updateItem(itemId, p);

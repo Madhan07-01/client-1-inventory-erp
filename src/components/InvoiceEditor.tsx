@@ -25,7 +25,7 @@ function blankItem(): InvoiceItem {
     id: newId(),
     description: "",
     condition: "",
-    hsn: "",
+    hsn: "7318",
     quantity: null,
     unit: "",
     price: null,
@@ -422,7 +422,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
           const newItem: InvoiceItem = {
             ...blankItem(),
             description: match.description,
-            hsn: match.hsn ?? "",
+            hsn: match.hsn || "7318",
             price: match.defaultRate ?? null,
             gstPercent: match.gstPercent ?? 0,
             quantity: 1,
@@ -584,7 +584,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
       warehouseName: wh?.name,
       lotNumber: batch?.lotNo,
       allocationTimestamp: batch ? Date.now() : undefined,
-      hsn: match.hsn ?? "",
+      hsn: match.hsn || "7318",
       price: match.defaultRate ?? null,
       gstPercent: match.gstPercent ?? 0
     });

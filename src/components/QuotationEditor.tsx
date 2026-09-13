@@ -214,7 +214,7 @@ export function QuotationEditor({
     if (batch.lotNo) parts.push(`Lot: ${batch.lotNo}`);
     if (batch.brandName) parts.push(`Brand: ${batch.brandName}`);
     if (batch.supplier) parts.push(`Supplier: ${batch.supplier}`);
-    if (batch.category) parts.push(`Cat: ${batch.category}`);
+    if (batch.category) parts.push(`Status: ${batch.category}`);
     if (!batch.hideCustomField1 && batch.customField1) parts.push(`Spec1: ${batch.customField1}`);
     if (!batch.hideCustomField2 && batch.customField2) parts.push(`Spec2: ${batch.customField2}`);
     if (!batch.hideCustomField3 && batch.customField3) parts.push(`Spec3: ${batch.customField3}`);

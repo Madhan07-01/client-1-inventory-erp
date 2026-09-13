@@ -302,18 +302,30 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
   }
 
   // Format a batch label
-  function batchLabel(batch: InventoryStock): string {
-    const wh = warehouses.find((w) => w.id === batch.warehouseId);
-    const loc = wh?.locations?.find((l) => l.id === batch.locationId);
+  function batchLabel(batch: InventoryStock, includeWarehouse: boolean = true): string {
     const parts: string[] = [];
     if (batch.size) parts.push(`Size: ${batch.size}`);
     if (batch.grade) parts.push(`Grade: ${batch.grade}`);
-    if (batch.finish) parts.push(`Finish: ${batch.finish}`);
     if (batch.thread) parts.push(`Thread: ${batch.thread}`);
+    if (batch.threadType) parts.push(`Type: ${batch.threadType}`);
+    if (batch.finish) parts.push(`Finish: ${batch.finish}`);
     if (batch.lotNo) parts.push(`Lot: ${batch.lotNo}`);
-    if (wh) parts.push(`WH: ${wh.name}`);
-    if (loc) parts.push(`Loc: ${loc.name}`);
-    return `${parts.join(" · ")} | Qty: ${batch.quantity}`;
+    if (batch.brandName) parts.push(`Brand: ${batch.brandName}`);
+    if (batch.supplier) parts.push(`Supplier: ${batch.supplier}`);
+    if (batch.category) parts.push(`Cat: ${batch.category}`);
+    if (!batch.hideCustomField1 && batch.customField1) parts.push(`Spec1: ${batch.customField1}`);
+    if (!batch.hideCustomField2 && batch.customField2) parts.push(`Spec2: ${batch.customField2}`);
+    if (!batch.hideCustomField3 && batch.customField3) parts.push(`Spec3: ${batch.customField3}`);
+    
+    if (includeWarehouse) {
+      const wh = warehouses.find((w) => w.id === batch.warehouseId);
+      const loc = wh?.locations?.find((l) => l.id === batch.locationId);
+      if (wh) parts.push(`WH: ${wh.name}`);
+      if (loc) parts.push(`Loc: ${loc.name}`);
+    }
+    
+    const details = parts.length > 0 ? parts.join(" • ") : "Default Variant";
+    return includeWarehouse ? `${details} | Qty: ${batch.quantity}` : details;
   }
 
   /**
@@ -1192,7 +1204,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                       if (it.stockBatchId) {
                          const b = inventoryStock.find(s => s.id === it.stockBatchId);
                          if (b) {
-                           batchInfo = <span className="text-muted-foreground ml-2">(Batch: {b.lotNo ? `Lot ${b.lotNo}` : b.size || b.grade || "Default"}) <button type="button" onClick={() => { setBatchPickerItemId(it.id); setBatchPickerProductId(b.productId); }} className="text-blue-500 hover:underline ml-1">Change Variant</button></span>;
+                           batchInfo = <span className="text-muted-foreground ml-2">(Variant: {batchLabel(b, false)}) <button type="button" onClick={() => { setBatchPickerItemId(it.id); setBatchPickerProductId(b.productId); }} className="text-blue-500 hover:underline ml-1">Change</button></span>;
                          }
                       } else if (!isOutOfStock) {
                          const match = activeProducts.find(p => p.description === it.description);

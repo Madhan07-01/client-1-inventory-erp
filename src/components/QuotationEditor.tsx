@@ -204,18 +204,32 @@ export function QuotationEditor({
     );
   }
 
-  function batchLabel(b: any) {
-    const parts = [];
-    if (b.size) parts.push(`Size: ${b.size}`);
-    if (b.grade) parts.push(`Grade: ${b.grade}`);
-    if (b.finish) parts.push(`Finish: ${b.finish}`);
-    if (b.thread) parts.push(`Thread: ${b.thread}`);
-    if (b.lotNo) parts.push(`Lot: ${b.lotNo}`);
-    const wh = warehouses.find(w => w.id === b.warehouseId)?.name || b.warehouseId;
-    if (wh) parts.push(`WH: ${wh}`);
-    if (b.location) parts.push(`Loc: ${b.location}`);
-    if (b.quantity != null) parts.push(`Qty: ${b.quantity}`);
-    return parts.join(" · ") || "Standard Variant";
+  function batchLabel(batch: any, includeWarehouse: boolean = true): string {
+    const parts: string[] = [];
+    if (batch.size) parts.push(`Size: ${batch.size}`);
+    if (batch.grade) parts.push(`Grade: ${batch.grade}`);
+    if (batch.thread) parts.push(`Thread: ${batch.thread}`);
+    if (batch.threadType) parts.push(`Type: ${batch.threadType}`);
+    if (batch.finish) parts.push(`Finish: ${batch.finish}`);
+    if (batch.lotNo) parts.push(`Lot: ${batch.lotNo}`);
+    if (batch.brandName) parts.push(`Brand: ${batch.brandName}`);
+    if (batch.supplier) parts.push(`Supplier: ${batch.supplier}`);
+    if (batch.category) parts.push(`Cat: ${batch.category}`);
+    if (!batch.hideCustomField1 && batch.customField1) parts.push(`Spec1: ${batch.customField1}`);
+    if (!batch.hideCustomField2 && batch.customField2) parts.push(`Spec2: ${batch.customField2}`);
+    if (!batch.hideCustomField3 && batch.customField3) parts.push(`Spec3: ${batch.customField3}`);
+    
+    if (includeWarehouse) {
+      const wh = warehouses.find((w) => w.id === batch.warehouseId);
+      const loc = wh?.locations?.find((l) => l.id === batch.locationId);
+      if (wh) parts.push(`WH: ${wh.name}`);
+      if (loc) parts.push(`Loc: ${loc.name}`);
+      if (batch.quantity != null) parts.push(`Qty: ${batch.quantity}`);
+    } else {
+      if (batch.quantity != null) parts.push(`Qty: ${batch.quantity}`);
+    }
+    
+    return parts.length > 0 ? parts.join(" • ") : "Default Variant";
   }
 
   function applyBatchToItem(itemId: string, batch: any) {
@@ -930,7 +944,7 @@ export function QuotationEditor({
                       if (it.stockBatchId) {
                          const b = inventoryStock.find(s => s.id === it.stockBatchId);
                          if (b) {
-                           batchInfo = <span className="text-muted-foreground ml-2">(Allocated: {b.lotNo ? `Lot ${b.lotNo}` : b.warehouseId}) <button type="button" onClick={() => { setBatchPickerItemId(it.id); setBatchPickerProductId(b.productId); }} className="text-blue-500 hover:underline ml-1">Change Variant</button></span>;
+                           batchInfo = <span className="text-muted-foreground ml-2">(Variant: {batchLabel(b, false)}) <button type="button" onClick={() => { setBatchPickerItemId(it.id); setBatchPickerProductId(b.productId); }} className="text-blue-500 hover:underline ml-1">Change</button></span>;
                          }
                       } else if (!isOutOfStock) {
                          const match = activeProducts.find(p => p.description === it.description);

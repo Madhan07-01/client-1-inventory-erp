@@ -372,14 +372,57 @@ function InventoryPage() {
     });
   }
 
-  function handleArchiveStock(row: any) {
-    if (!window.confirm(`Are you sure you want to archive this stock entry for "${row.productName}"?`)) return;
-    const stock = inventoryStock.find((s) => s.id === row.id);
-    if (stock) {
-      const updated = { ...stock, active: false };
-      cloud.upsertInventoryStock(updated).catch(console.error);
-      upsertInventoryStock(updated);
-      toast.success("Ledger entry archived.");
+  /**
+   * PERMANENT DELETE of a stock batch.
+   * Blocked if the batch has been dispatched in any ACTIVE invoice
+   * (checked via stockBatchId on invoice items).
+   * Also blocked if the product's description appears in any invoice line
+   * (legacy invoices that didn't track stockBatchId).
+   */
+  function handlePermanentDeleteStock(row: any) {
+    const invoices = useApp.getState().invoices;
+    const quotations = useApp.getState().quotations;
+
+    // Check if this exact batch is referenced in any active invoice
+    const batchUsed = invoices.some((inv) =>
+      inv.lifecycle !== "CANCELLED" &&
+      inv.items.some((it) => it.stockBatchId === row.id),
+    );
+    // Fallback: check by product description in invoices
+    const productUsedInInvoice = !batchUsed && invoices.some((inv) =>
+      inv.lifecycle !== "CANCELLED" &&
+      inv.items.some(
+        (it) =>
+          it.productId === row.productId ||
+          it.description.trim().toLowerCase() === row.productName.trim().toLowerCase(),
+      ),
+    );
+    const productUsedInQuotation = quotations.some((q) =>
+      q.items.some(
+        (it) =>
+          it.productId === row.productId ||
+          it.description.trim().toLowerCase() === row.productName.trim().toLowerCase(),
+      ),
+    );
+
+    if (batchUsed || productUsedInInvoice || productUsedInQuotation) {
+      toast.error(
+        `Cannot delete this stock batch — it is referenced in ${batchUsed || productUsedInInvoice ? "invoices" : "quotations"}. Use the Archive button to hide it instead.`,
+        { duration: 5000 },
+      );
+      return;
+    }
+
+    if (
+      !confirm(
+        `PERMANENTLY DELETE this stock batch for "${row.productName}" (Lot: ${row.lotNo}, Qty: ${row.quantity})?\n\nThis CANNOT be undone.`,
+      )
+    )
+      return;
+
+    if (row.id) {
+      deleteInventoryStock(row.id);
+      toast.success("Stock batch permanently deleted.");
       setSelectedStockIds((prev) => {
         const next = new Set(prev);
         next.delete(row.id);
@@ -387,6 +430,8 @@ function InventoryPage() {
       });
     }
   }
+
+
 
   function handleRestoreStock(row: any) {
     const stock = inventoryStock.find((s) => s.id === row.id);
@@ -901,9 +946,9 @@ function InventoryPage() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    title="Archive Stock Record"
+                                    title="Permanently Delete Stock Batch (only if unused in invoices)"
                                     className="text-red-500 hover:text-red-700"
-                                    onClick={() => handleArchiveStock(row)}
+                                    onClick={() => handlePermanentDeleteStock(row)}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>

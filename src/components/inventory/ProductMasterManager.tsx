@@ -47,6 +47,8 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
   const company = useApp((s) => s.settings.company);
   const upsertProduct = useApp((s) => s.upsertProductMaster);
   const deleteProductMaster = useApp((s) => s.deleteProductMaster);
+  const deleteInventoryStock = useApp((s) => s.deleteInventoryStock);
+
 
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
@@ -108,26 +110,65 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
 
   const upsertInventoryStock = useApp((s) => s.upsertInventoryStock);
 
-  function handleArchive(p: ProductMasterEntry) {
-    if (!confirm(`Are you sure you want to archive "${p.description}"? All associated stock variants will also be archived.`)) return;
-    const updated = { ...p, active: false };
-    cloud.upsertProduct(updated).catch(console.error);
-    upsertProduct(updated);
-    
-    // Cascade to stock
-    inventoryStock.filter(s => s.productId === p.id && s.active !== false).forEach(s => {
-      const updatedStock = { ...s, active: false };
-      cloud.upsertInventoryStock(updatedStock).catch(console.error);
-      upsertInventoryStock(updatedStock);
-    });
+  /**
+   * PERMANENT DELETE — erases the product from the catalogue and all its
+   * stock variants from the ledger.
+   * Blocked if the product has ever appeared in a saved invoice or quotation
+   * (in that case the user should use the Archive / soft-delete button instead).
+   */
+  function handlePermanentDelete(p: ProductMasterEntry) {
+    // Check invoices
+    const usedInInvoice = invoices.some((inv) =>
+      inv.items.some(
+        (it) =>
+          it.productId === p.id ||
+          it.description.trim().toLowerCase() === p.description.trim().toLowerCase(),
+      ),
+    );
+    // Check quotations
+    const usedInQuotation = quotations.some((q) =>
+      q.items.some(
+        (it) =>
+          it.productId === p.id ||
+          it.description.trim().toLowerCase() === p.description.trim().toLowerCase(),
+      ),
+    );
 
-    toast.success("Product and its stock variants archived");
+    if (usedInInvoice || usedInQuotation) {
+      toast.error(
+        `Cannot delete "${p.description}" — it is referenced in ${usedInInvoice ? "invoices" : "quotations"}. Use the Archive button to hide it instead.`,
+        { duration: 5000 },
+      );
+      return;
+    }
+
+    if (
+      !confirm(
+        `PERMANENTLY DELETE "${p.description}"?\n\nThis will also erase all ${inventoryStock.filter((s) => s.productId === p.id).length} stock batch(es) for this product.\n\nThis CANNOT be undone.`,
+      )
+    )
+      return;
+
+    // Delete all stock variants first
+    inventoryStock
+      .filter((s) => s.productId === p.id)
+      .forEach((s) => {
+        if (s.id) {
+          deleteInventoryStock(s.id);
+        }
+      });
+
+    // Then delete the product master entry
+    deleteProductMaster(p.id);
+    toast.success(`"${p.description}" permanently deleted.`);
     setSelectedIds((prev) => {
       const next = new Set(prev);
       next.delete(p.id);
       return next;
     });
   }
+
+
 
   function handleRestore(p: ProductMasterEntry) {
     const updated = { ...p, active: true };
@@ -369,7 +410,7 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
                           <Pencil className="h-4 w-4" />
                         </Button>
                         {p.active !== false ? (
-                          <Button variant="ghost" size="sm" onClick={() => handleArchive(p)} title="Archive Product">
+                          <Button variant="ghost" size="sm" onClick={() => handlePermanentDelete(p)} title="Permanently Delete Product (only if unused in invoices)">
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         ) : (

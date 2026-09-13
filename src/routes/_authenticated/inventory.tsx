@@ -976,7 +976,7 @@ function InventoryPage() {
                                   {(row.thread || (row as any).threadType) && (row.thread !== "-" || (row as any).threadType !== "-") && <div><span className="font-medium text-foreground">Thread Type:</span> {row.thread || (row as any).threadType}</div>}
                                   {row.finish && row.finish !== "-" && <div><span className="font-medium text-foreground">Finish:</span> {row.finish}</div>}
                                   {row.purchaseDate && row.purchaseDate !== "-" && <div><span className="font-medium text-foreground">Purchase Date:</span> {row.purchaseDate}</div>}
-                                  {row.purchaseRate && row.purchaseRate !== "-" && <div><span className="font-medium text-foreground">Purchase Rate:</span> {`₹${row.purchaseRate}`}</div>}
+                                  {row.purchaseRate != null && <div><span className="font-medium text-foreground">Purchase Rate:</span> {`₹${row.purchaseRate}`}</div>}
                                   {row.purchaseRef && row.purchaseRef !== "-" && <div><span className="font-medium text-foreground">Ref:</span> {row.purchaseRef}</div>}
                                   {row.customField1 && <div><span className="font-medium text-foreground">Spec 1:</span> {row.customField1}</div>}
                                   {row.customField2 && <div><span className="font-medium text-foreground">Spec 2:</span> {row.customField2}</div>}

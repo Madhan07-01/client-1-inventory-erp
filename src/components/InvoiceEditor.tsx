@@ -304,6 +304,10 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
   // Format a batch label
   function batchLabel(batch: InventoryStock, includeWarehouse: boolean = true): string {
     const parts: string[] = [];
+    const product = settings.productMaster.find((p) => p.id === batch.productId);
+    if (product) {
+      parts.push(`SKU: ${product.sku || product.description}`);
+    }
     if (batch.size) parts.push(`Size: ${batch.size}`);
     if (batch.grade) parts.push(`Grade: ${batch.grade}`);
     if (batch.thread) parts.push(`Thread: ${batch.thread}`);

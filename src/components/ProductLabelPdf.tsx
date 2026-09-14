@@ -40,10 +40,9 @@ export function buildLabelHtml(
   const qrBase64 = btoa(unescape(encodeURIComponent(rawQrSvg)));
   const qrImgSrc = `data:image/svg+xml;base64,${qrBase64}`;
 
-  const itemTypeHeader = (product.itemType || "BOLT NUT").toUpperCase();
-  const productSize = (batch.size || "").trim();
+  const skuHeader = (product.sku || product.description || "").toUpperCase();
 
-  let threadDisplay = (batch.thread || "—").trim();
+  let threadDisplay = (batch.thread || "-").trim();
   if (threadDisplay.toLowerCase() === "half" || threadDisplay.toLowerCase() === "full") {
     threadDisplay += " Thread";
   }
@@ -55,8 +54,7 @@ export function buildLabelHtml(
         <div class="qr-wrapper">
           <img src="${qrImgSrc}" alt="QR Code" />
         </div>
-        <div class="item-type-header">${itemTypeHeader}</div>
-        ${productSize ? `<div class="size-header">${productSize}</div>` : ""}
+        <div class="item-type-header">${skuHeader}</div>
       </div>
       <div class="right-section">
         <table class="specs-table">

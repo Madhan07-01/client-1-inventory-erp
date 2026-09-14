@@ -183,9 +183,9 @@ export const useApp = create<AppState>()((set, get) => ({
       const desc = entry.description.trim();
       if (!desc) return s;
       const list = s.settings.productMaster;
-      const idx = list.findIndex(
-        (x) => (entry.id && x.id === entry.id) || x.description.trim().toLowerCase() === desc.toLowerCase(),
-      );
+      const idx = entry.id
+        ? list.findIndex((x) => x.id === entry.id)
+        : list.findIndex((x) => x.description.trim().toLowerCase() === desc.toLowerCase());
       let saved: ProductMasterEntry;
       if (idx === -1) {
         saved = {
@@ -358,7 +358,7 @@ export const useApp = create<AppState>()((set, get) => ({
         for (const item of oldInv.items) {
           if (!item.quantity) continue;
           const p = s.settings.productMaster.find(
-            (x) => x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
+            (x) => (item.productId && x.id === item.productId) || x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
           );
           if (!p) continue;
           revertBatch(
@@ -378,7 +378,7 @@ export const useApp = create<AppState>()((set, get) => ({
         for (const item of inv.items) {
           if (!item.quantity) continue;
           const p = s.settings.productMaster.find(
-            (x) => x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
+            (x) => (item.productId && x.id === item.productId) || x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
           );
           if (!p) continue;
           deductFIFO(
@@ -408,7 +408,7 @@ export const useApp = create<AppState>()((set, get) => ({
         for (const item of inv.items) {
           if (!item.quantity) continue;
           const p = s.settings.productMaster.find(
-            (x) => x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
+            (x) => (item.productId && x.id === item.productId) || x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
           );
           if (!p) continue;
 

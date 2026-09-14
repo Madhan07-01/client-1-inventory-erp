@@ -33,7 +33,7 @@ function emptyProduct(): EditableProduct {
     id: "",
     sku: "",
     description: "",
-    hsn: "",
+    hsn: "7318",
     active: true,
     itemType: "",
   };

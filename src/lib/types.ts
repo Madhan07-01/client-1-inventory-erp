@@ -99,6 +99,7 @@ export type GstMode = "CGST_SGST" | "IGST";
 export interface InvoiceItem {
   id: string;
   description: string;
+  remarks?: string;
   condition: string;
   hsn: string;
   quantity: number | null;

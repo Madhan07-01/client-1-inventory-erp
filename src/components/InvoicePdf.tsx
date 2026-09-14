@@ -161,7 +161,10 @@ function buildInvoicePrintHtml(invoice: Invoice): string {
 
       return `<tr>
         <td>${index + 1}</td>
-        <td>${escapeHtml(item.description)}</td>
+        <td>
+          <div style="font-weight: 500;">${escapeHtml(item.description)}</div>
+          ${item.remarks ? `<div style="font-size: 0.85em; color: #555; margin-top: 2px; white-space: pre-wrap;">${escapeHtml(item.remarks)}</div>` : ""}
+        </td>
         <td>${escapeHtml(item.hsn || "-")}</td>
         <td class="right">${quantity || ""}</td>
         <td class="right">${price ? escapeHtml(rupee(price)) : ""}</td>

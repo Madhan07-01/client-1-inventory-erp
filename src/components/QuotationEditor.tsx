@@ -4,6 +4,7 @@ import { cloud } from "@/lib/cloud";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus,
@@ -964,6 +965,15 @@ export function QuotationEditor({
                         </div>
                       );
                     })()}
+                    <div className="mt-1">
+                      <Textarea 
+                         placeholder="Remarks (optional)..." 
+                         className="min-h-[36px] h-auto resize-y text-xs py-1 px-2"
+                         value={it.remarks || ""}
+                         disabled={isLocked}
+                         onChange={(e) => updateItem(it.id, { remarks: e.target.value })}
+                      />
+                    </div>
                   </td>
                   <td className="px-2 py-1">
                     <Input

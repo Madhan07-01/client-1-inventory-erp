@@ -4,6 +4,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, FileDown, Save, Printer, FileText, Check, Layers, AlertTriangle } from "lucide-react";
 import { useApp, newId } from "@/lib/store";
 import type { Invoice, InvoiceItem, InventoryStock, SupplyType } from "@/lib/types";
@@ -1224,6 +1225,14 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                         </div>
                       );
                     })()}
+                    <div className="mt-1">
+                      <Textarea 
+                         placeholder="Remarks (optional)..." 
+                         className="min-h-[36px] h-auto resize-y text-xs py-1 px-2"
+                         value={it.remarks || ""}
+                         onChange={(e) => updateItem(it.id, { remarks: e.target.value })}
+                      />
+                    </div>
                   </td>
                   <td className="px-2 py-1">
                     <Input

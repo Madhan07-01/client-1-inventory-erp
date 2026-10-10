@@ -162,6 +162,16 @@ export function QuotationEditor({
     setQ(initial);
   }, [initial.id]);
 
+  const previousQtyRef = useRef<number>(initial.items.reduce((sum, it) => sum + (it.quantity || 0), 0));
+
+  useEffect(() => {
+    const totalQty = q.items.reduce((sum, it) => sum + (it.quantity || 0), 0);
+    if (totalQty !== previousQtyRef.current) {
+      previousQtyRef.current = totalQty;
+      setQ((s) => ({ ...s, weight: totalQty.toString() }));
+    }
+  }, [q.items]);
+
   const totals = useMemo(() => computeTotals(q as unknown as Invoice), [q]);
   const activeProducts = settings.productMaster.filter((p) => p.active);
 

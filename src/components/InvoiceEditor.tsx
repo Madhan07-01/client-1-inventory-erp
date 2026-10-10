@@ -219,6 +219,16 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
     setInv(initial);
   }, [initial.id]);
 
+  const previousQtyRef = useRef<number>(initial.items.reduce((sum, it) => sum + (it.quantity || 0), 0));
+
+  useEffect(() => {
+    const totalQty = inv.items.reduce((sum, it) => sum + (it.quantity || 0), 0);
+    if (totalQty !== previousQtyRef.current) {
+      previousQtyRef.current = totalQty;
+      setInv((s) => ({ ...s, weight: totalQty.toString() }));
+    }
+  }, [inv.items]);
+
   const totals = useMemo(() => computeTotals(inv), [inv]);
   const activeProducts = settings.productMaster.filter((p) => p.active);
 

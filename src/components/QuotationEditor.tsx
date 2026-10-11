@@ -55,7 +55,7 @@ function blankItem(): InvoiceItem {
     condition: "",
     hsn: "7318",
     quantity: null,
-    unit: "",
+    unit: "KGS",
     price: null,
     gstPercent: null,
   };

@@ -49,7 +49,8 @@ function buildDeliveryChallanHtml(invoice: Invoice): string {
   const itemsHtml = invoice.items
     .map((item, index) => {
       const quantity = item.quantity ?? 0;
-      const unit = ((item as any).unit && String((item as any).unit).trim()) ? String((item as any).unit).trim() : "KGS";
+      const rawUnit = String((item as any).unit || "").trim();
+      const unit = (!rawUnit || rawUnit.toUpperCase() === "NOS" || rawUnit.toUpperCase() === "NOS." || rawUnit.toUpperCase() === "NO") ? "KGS" : rawUnit;
       const qtyText = quantity ? `${quantity} ${unit}` : "";
       return `<tr>
         <td>${index + 1}</td>
@@ -187,7 +188,7 @@ function buildDeliveryChallanHtml(invoice: Invoice): string {
           <tr>
             <th style="width: 60px;">Sl No</th>
             <th>Product Description</th>
-            <th class="right" style="width: 120px;">Qty</th>
+            <th class="right" style="width: 120px;">KGS</th>
           </tr>
         </thead>
         <tbody>${itemsHtml}</tbody>

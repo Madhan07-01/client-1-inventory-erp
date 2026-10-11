@@ -29,7 +29,7 @@ type AdjustData = {
   productId: string;
   warehouseId: string;
   locationId: string;
-  type: "IN" | "OUT";
+  type: "IN" | "OUT" | "SET";
   qty: string;
   notes: string;
   remarks?: string;
@@ -129,15 +129,14 @@ function InventoryPage() {
       return;
     }
     const qty = Number(adjustData.qty);
-    if (qty <= 0) {
-      toast.error("Quantity must be greater than 0");
+    if (isNaN(qty) || qty < 0) {
+      toast.error("Quantity must be a valid non-negative number");
       return;
     }
 
-    const change = adjustData.type === "IN" ? qty : -qty;
     const now = new Date().toISOString();
 
-    // For OUT: find an existing stock batch to decrement (match by product+warehouse+location+batch)
+    // Find an existing stock batch to adjust/update (match by batchId or composite key)
     const existingStock = adjustData.batchId 
       ? inventoryStock.find((s) => s.id === adjustData.batchId)
       : inventoryStock.find(
@@ -157,36 +156,47 @@ function InventoryPage() {
         );
 
     const currentQty = existingStock?.quantity ?? 0;
-    const newQty = currentQty + change;
+    let change = 0;
+    let newQty = currentQty;
+
+    if (adjustData.type === "SET") {
+      newQty = qty;
+      change = newQty - currentQty;
+    } else if (adjustData.type === "IN") {
+      change = qty;
+      newQty = currentQty + qty;
+    } else { // OUT
+      change = -qty;
+      newQty = Math.max(0, currentQty - qty);
+    }
 
     const newStock: InventoryStock = existingStock
       ? {
           ...existingStock,
+          productId: adjustData.productId,
+          warehouseId: adjustData.warehouseId,
+          locationId: adjustData.locationId,
           quantity: newQty,
           updatedAt: now,
-          // Update batch fields if provided
-          ...(adjustData.lotNo && { lotNo: adjustData.lotNo }),
-          ...(adjustData.brandName && { brandName: adjustData.brandName }),
-          ...((adjustData.goodsFrom || adjustData.supplier) && {
-            supplier: adjustData.goodsFrom || adjustData.supplier,
-            goodsFrom: adjustData.goodsFrom || adjustData.supplier,
-          }),
-          ...(adjustData.purchaseDate && { purchaseDate: adjustData.purchaseDate }),
-          ...(adjustData.purchaseRate && { purchaseRate: Number(adjustData.purchaseRate) }),
-          ...(adjustData.purchaseRef && { purchaseRef: adjustData.purchaseRef }),
-          ...(adjustData.size && { size: adjustData.size }),
-          ...(adjustData.grade && { grade: adjustData.grade }),
-          ...((adjustData.threadType || adjustData.thread) && {
-            thread: adjustData.threadType || adjustData.thread,
-            threadType: adjustData.threadType || adjustData.thread,
-          }),
-          ...(adjustData.finish && { finish: adjustData.finish }),
-          ...((adjustData.remarks || adjustData.notes) && {
-            remarks: adjustData.remarks || adjustData.notes,
-          }),
-          ...(adjustData.customField1 && { customField1: adjustData.customField1, hideCustomField1: adjustData.hideCustomField1 }),
-          ...(adjustData.customField2 && { customField2: adjustData.customField2, hideCustomField2: adjustData.hideCustomField2 }),
-          ...(adjustData.customField3 && { customField3: adjustData.customField3, hideCustomField3: adjustData.hideCustomField3 }),
+          lotNo: adjustData.lotNo || undefined,
+          brandName: adjustData.brandName || undefined,
+          supplier: adjustData.goodsFrom || adjustData.supplier || undefined,
+          goodsFrom: adjustData.goodsFrom || adjustData.supplier || undefined,
+          purchaseDate: adjustData.purchaseDate || undefined,
+          purchaseRate: adjustData.purchaseRate ? Number(adjustData.purchaseRate) : undefined,
+          purchaseRef: adjustData.purchaseRef || undefined,
+          size: adjustData.size || undefined,
+          grade: adjustData.grade || undefined,
+          thread: adjustData.threadType || adjustData.thread || undefined,
+          threadType: adjustData.threadType || adjustData.thread || undefined,
+          finish: adjustData.finish || undefined,
+          remarks: adjustData.remarks || adjustData.notes || undefined,
+          customField1: adjustData.customField1 || undefined,
+          customField2: adjustData.customField2 || undefined,
+          customField3: adjustData.customField3 || undefined,
+          hideCustomField1: adjustData.hideCustomField1 || false,
+          hideCustomField2: adjustData.hideCustomField2 || false,
+          hideCustomField3: adjustData.hideCustomField3 || false,
           category: adjustData.category,
         }
       : {
@@ -218,28 +228,30 @@ function InventoryPage() {
           category: adjustData.category,
         };
 
-    const txn: InventoryTransaction = {
-      id: newId(),
-      productId: adjustData.productId,
-      warehouseId: adjustData.warehouseId,
-      locationId: adjustData.locationId,
-      quantityChange: change,
-      transactionType: adjustData.type,
-      referenceType: "MANUAL_ADJUSTMENT",
-      notes: adjustData.remarks || adjustData.notes || undefined,
-      remarks: adjustData.remarks || adjustData.notes || undefined,
-      brandName: adjustData.brandName || undefined,
-      goodsFrom: adjustData.goodsFrom || adjustData.supplier || undefined,
-      supplier: adjustData.goodsFrom || adjustData.supplier || undefined,
-      lotNo: adjustData.lotNo || undefined,
-      threadType: adjustData.threadType || adjustData.thread || undefined,
-      createdAt: now,
-    };
-
     upsertInventoryStock(newStock);
-    insertInventoryTransaction(txn);
 
-    toast.success("Stock adjusted successfully!");
+    if (change !== 0) {
+      const txn: InventoryTransaction = {
+        id: newId(),
+        productId: adjustData.productId,
+        warehouseId: adjustData.warehouseId,
+        locationId: adjustData.locationId,
+        quantityChange: change,
+        transactionType: adjustData.type === "SET" ? (change > 0 ? "IN" : "OUT") : adjustData.type,
+        referenceType: "MANUAL_ADJUSTMENT",
+        notes: adjustData.remarks || adjustData.notes || (adjustData.type === "SET" ? "Batch details / quantity updated" : undefined),
+        remarks: adjustData.remarks || adjustData.notes || undefined,
+        brandName: adjustData.brandName || undefined,
+        goodsFrom: adjustData.goodsFrom || adjustData.supplier || undefined,
+        supplier: adjustData.goodsFrom || adjustData.supplier || undefined,
+        lotNo: adjustData.lotNo || undefined,
+        threadType: adjustData.threadType || adjustData.thread || undefined,
+        createdAt: now,
+      };
+      insertInventoryTransaction(txn);
+    }
+
+    toast.success(adjustData.batchId && adjustData.type === "SET" ? "Batch details updated successfully!" : "Stock adjusted successfully!");
     setIsAdjusting(false);
     setAdjustData(emptyAdjust());
   }
@@ -524,7 +536,7 @@ function InventoryPage() {
               <div className="bg-white p-6 rounded-lg border shadow-sm">
                 <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
                   <ArrowDownUp className="w-5 h-5 text-muted-foreground" />
-                  Warehouse Ledger Adjustment
+                  {adjustData.batchId ? "Edit Batch & Stock Details" : "Warehouse Ledger Adjustment"}
                 </h2>
                 <form onSubmit={handleAdjustSubmit} className="space-y-4">
                   {/* Core fields */}
@@ -582,8 +594,9 @@ function InventoryPage() {
                         <select
                           className="w-full mt-1 text-sm border rounded-md px-3 py-2 bg-white"
                           value={adjustData.type}
-                          onChange={(e) => patch({ type: e.target.value as "IN" | "OUT" })}
+                          onChange={(e) => patch({ type: e.target.value as "IN" | "OUT" | "SET" })}
                         >
+                          <option value="SET">SET (Update Batch Details / Exact Stock)</option>
                           <option value="IN">IN (Add Stock)</option>
                           <option value="OUT">OUT (Remove Stock)</option>
                         </select>
@@ -860,11 +873,13 @@ function InventoryPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  title="Adjust Stock"
+                                  title="Edit Batch Details & Stock"
                                   onClick={() => {
                                     setAdjustData({
                                       ...emptyAdjust(),
                                       batchId: row.id,
+                                      type: "SET",
+                                      qty: String(row.quantity),
                                       productId: row.productId,
                                       warehouseId: row.warehouseId,
                                       locationId: row.locationId,

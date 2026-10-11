@@ -63,7 +63,7 @@ export function ProductMasterManager({ onViewStock }: { onViewStock?: (sku: stri
         [p.description, p.sku, p.itemType, p.hsn].join(" ").toLowerCase().includes(q),
       );
     }
-    return result.reverse();
+    return result;
   }, [products, query, viewMode]);
 
   function openEdit(p: ProductMasterEntry) {

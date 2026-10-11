@@ -410,6 +410,17 @@ function isValidUuid(val?: string | null): boolean {
   return !!val && UUID_REGEX.test(val.trim());
 }
 
+let productResolver: (() => any[]) | null = null;
+let warehouseResolver: (() => any[]) | null = null;
+
+export function setCloudResolvers(
+  getProducts: () => any[],
+  getWarehouses: () => any[],
+) {
+  productResolver = getProducts;
+  warehouseResolver = getWarehouses;
+}
+
 export function transactionToRow(t: InventoryTransaction, userId: string) {
   let productId = isValidUuid(t.productId) ? t.productId.trim() : null;
   let warehouseId = isValidUuid(t.warehouseId) ? t.warehouseId.trim() : null;
@@ -421,15 +432,14 @@ export function transactionToRow(t: InventoryTransaction, userId: string) {
   // If productId is not a valid UUID, attempt resolution from product list
   if (!productId && t.productId) {
     try {
-      const { useApp } = require("./store");
-      const list = useApp.getState().settings.productMaster;
+      const list = productResolver ? productResolver() : [];
       const target = t.productId.trim().toLowerCase();
       const matched =
         list.find((p: any) => p.id === t.productId) ||
-        list.find((p: any) => p.description.trim().toLowerCase() === target) ||
+        list.find((p: any) => p.description && p.description.trim().toLowerCase() === target) ||
         list.find((p: any) => p.sku && p.sku.trim().toLowerCase() === target) ||
-        list.find((p: any) => `${p.description} (${p.sku})`.toLowerCase() === target) ||
-        list.find((p: any) => target.startsWith(p.description.trim().toLowerCase()));
+        list.find((p: any) => p.description && `${p.description} (${p.sku})`.toLowerCase() === target) ||
+        list.find((p: any) => p.description && target.startsWith(p.description.trim().toLowerCase()));
       if (matched && isValidUuid(matched.id)) {
         productId = matched.id;
       }
@@ -444,8 +454,7 @@ export function transactionToRow(t: InventoryTransaction, userId: string) {
   // If warehouseId is not a valid UUID, attempt fallback from user warehouses
   if (!warehouseId) {
     try {
-      const { useApp } = require("./store");
-      const whs = useApp.getState().warehouses;
+      const whs = warehouseResolver ? warehouseResolver() : [];
       const whMatch = whs.find((w: any) => w.id === t.warehouseId || w.name === t.warehouseId || w.code === t.warehouseId) || whs[0];
       if (whMatch && isValidUuid(whMatch.id)) {
         warehouseId = whMatch.id;
@@ -467,8 +476,8 @@ export function transactionToRow(t: InventoryTransaction, userId: string) {
   // Final check: if productId is still not a UUID, fallback to any active product UUID to avoid DB syntax crash
   if (!productId) {
     try {
-      const { useApp } = require("./store");
-      const pFirst = useApp.getState().settings.productMaster.find((p: any) => isValidUuid(p.id));
+      const list = productResolver ? productResolver() : [];
+      const pFirst = list.find((p: any) => isValidUuid(p.id));
       if (pFirst) productId = pFirst.id;
     } catch {
       // ignore
@@ -518,7 +527,12 @@ export const cloud = {
           .is("deleted_at", null)
           .order("created_at", { ascending: false })
           .limit(50),
-        supabase.from("product_master").select("*").eq("user_id", userId).is("deleted_at", null),
+        supabase
+          .from("product_master")
+          .select("*")
+          .eq("user_id", userId)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false }),
         supabase.from("app_notifications").select("id, read").eq("user_id", userId),
         supabase.from("user_state").select("state").eq("user_id", userId).maybeSingle(),
         supabase.from("inventory_stock").select("*").eq("user_id", userId),

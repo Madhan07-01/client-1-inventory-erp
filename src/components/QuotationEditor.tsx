@@ -46,6 +46,7 @@ import {
 } from "@/lib/quotation-actions";
 import { toast } from "sonner";
 import { CameraScannerDialog } from "@/components/CameraScannerDialog";
+import { ItemDescriptionCombobox } from "@/components/InvoiceEditor";
 
 function blankItem(): InvoiceItem {
   return {
@@ -922,9 +923,14 @@ export function QuotationEditor({
                 <tr key={it.id} className="border-t">
                   <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
                   <td className="px-2 py-1">
-                    <Select
+                    <ItemDescriptionCombobox
+                      value={it.description || ""}
                       disabled={isLocked}
-                      value={it.description || undefined}
+                      activeProducts={activeProducts}
+                      getAvailableStock={getAvailableStock}
+                      onInputChange={(val) => {
+                        updateItem(it.id, { description: val, stockBatchId: undefined });
+                      }}
                       onValueChange={(val) => {
                         updateItem(it.id, { description: val, stockBatchId: undefined });
                         applyProductByDescription(it.id, val);
@@ -937,18 +943,7 @@ export function QuotationEditor({
                            }
                         }
                       }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select Product" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sortedActiveProducts.map(({ p, avail }) => (
-                           <SelectItem key={p.id} value={p.description}>
-                             {p.description} {p.sku ? `(${p.sku})` : ""} {avail > 0 ? `- Stock: ${avail}` : `- Out of stock`}
-                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                     {(() => {
                       if (!it.description) return null;
                       const avail = getAvailableStock(it.description);

@@ -11,7 +11,7 @@ import type {
   Location,
 } from "./types";
 import { defaultSettings } from "./default-settings";
-import { cloud } from "./cloud";
+import { cloud, setCloudResolvers } from "./cloud";
 import { toast } from "sonner";
 
 interface AppState {
@@ -202,7 +202,7 @@ export const useApp = create<AppState>()((set, get) => ({
         return {
           settings: {
             ...s.settings,
-            productMaster: [...list, saved],
+            productMaster: [saved, ...list],
           },
         };
       }
@@ -694,7 +694,7 @@ const deductFIFO = (
       const list = s.settings.productMaster;
       const idx = list.findIndex((x) => x.id === p.id);
       if (idx === -1) {
-        return { settings: { ...s.settings, productMaster: [...list, p] } };
+        return { settings: { ...s.settings, productMaster: [p, ...list] } };
       }
       const nextList = [...list];
       nextList[idx] = p;
@@ -703,6 +703,11 @@ const deductFIFO = (
 
   setSettingsLocal: (settings) => set({ settings }),
 }));
+
+setCloudResolvers(
+  () => useApp.getState().settings.productMaster,
+  () => useApp.getState().warehouses,
+);
 
 export function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {

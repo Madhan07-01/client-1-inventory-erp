@@ -89,18 +89,20 @@ export function buildBlankInvoice(args: {
   };
 }
 
-function ItemDescriptionCombobox({ 
+export function ItemDescriptionCombobox({ 
   value, 
   onValueChange,
   onInputChange,
   activeProducts,
-  getAvailableStock
+  getAvailableStock,
+  disabled,
 }: { 
   value: string; 
   onValueChange: (val: string) => void;
   onInputChange?: (val: string) => void;
   activeProducts: any[];
   getAvailableStock: (desc: string) => number | null;
+  disabled?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -154,6 +156,7 @@ function ItemDescriptionCombobox({
     <>
       <input
         ref={inputRef}
+        disabled={disabled}
         placeholder="Search product..."
         value={query}
         onChange={(e) => { 

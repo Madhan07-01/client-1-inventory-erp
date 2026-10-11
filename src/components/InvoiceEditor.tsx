@@ -1258,7 +1258,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                       className={`text-right ${
                         (() => {
                           if (!it.description || it.quantity === null) return "";
-                          const avail = getAvailableStock(it.description);
+                          const avail = getAvailableStock(it.description, it.id);
                           if (avail !== null && it.quantity > avail) return "border-destructive ring-1 ring-destructive focus-visible:ring-destructive";
                           return "";
                         })()
@@ -1268,7 +1268,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                       onChange={(e) => {
                         const val = e.target.value === "" ? null : Number(e.target.value);
                         if (val !== null && it.description) {
-                          const avail = getAvailableStock(it.description);
+                          const avail = getAvailableStock(it.description, it.id);
                           if (avail !== null && val > avail) {
                             if (avail === 0) {
                               toast.error(`Stock is empty for ${it.description}.`);
@@ -1284,7 +1284,7 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                     />
                     {(() => {
                       if (!it.description || it.quantity === null) return null;
-                      const avail = getAvailableStock(it.description);
+                      const avail = getAvailableStock(it.description, it.id);
                       if (avail !== null && it.quantity > avail) {
                         return <div className="text-[10px] text-destructive mt-1 leading-tight text-right">Exceeds stock</div>;
                       }

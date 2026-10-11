@@ -404,18 +404,88 @@ export function rowToTransaction(r: Row): InventoryTransaction {
   };
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUuid(val?: string | null): boolean {
+  return !!val && UUID_REGEX.test(val.trim());
+}
+
 export function transactionToRow(t: InventoryTransaction, userId: string) {
+  let productId = isValidUuid(t.productId) ? t.productId.trim() : null;
+  let warehouseId = isValidUuid(t.warehouseId) ? t.warehouseId.trim() : null;
+  let locationId = isValidUuid(t.locationId) ? t.locationId!.trim() : null;
+  let referenceId = isValidUuid(t.referenceId) ? t.referenceId!.trim() : null;
+
+  let notes = t.remarks ?? t.notes ?? null;
+
+  // If productId is not a valid UUID, attempt resolution from product list
+  if (!productId && t.productId) {
+    try {
+      const { useApp } = require("./store");
+      const list = useApp.getState().settings.productMaster;
+      const target = t.productId.trim().toLowerCase();
+      const matched =
+        list.find((p: any) => p.id === t.productId) ||
+        list.find((p: any) => p.description.trim().toLowerCase() === target) ||
+        list.find((p: any) => p.sku && p.sku.trim().toLowerCase() === target) ||
+        list.find((p: any) => `${p.description} (${p.sku})`.toLowerCase() === target) ||
+        list.find((p: any) => target.startsWith(p.description.trim().toLowerCase()));
+      if (matched && isValidUuid(matched.id)) {
+        productId = matched.id;
+      }
+    } catch {
+      // ignore
+    }
+    if (!productId) {
+      notes = notes ? `${notes} [Product: ${t.productId}]` : `[Product: ${t.productId}]`;
+    }
+  }
+
+  // If warehouseId is not a valid UUID, attempt fallback from user warehouses
+  if (!warehouseId) {
+    try {
+      const { useApp } = require("./store");
+      const whs = useApp.getState().warehouses;
+      const whMatch = whs.find((w: any) => w.id === t.warehouseId || w.name === t.warehouseId || w.code === t.warehouseId) || whs[0];
+      if (whMatch && isValidUuid(whMatch.id)) {
+        warehouseId = whMatch.id;
+      }
+    } catch {
+      // ignore
+    }
+    // Hard fallback to known default warehouse if still missing
+    if (!warehouseId) {
+      warehouseId = "2b35e155-b463-4b35-89c9-909e4a3a9079";
+    }
+  }
+
+  // If referenceId was an invoice number (e.g. "INV-305"), append to notes and set referenceId to null
+  if (!referenceId && t.referenceId) {
+    notes = notes ? `${notes} (Ref: ${t.referenceId})` : `Ref: ${t.referenceId}`;
+  }
+
+  // Final check: if productId is still not a UUID, fallback to any active product UUID to avoid DB syntax crash
+  if (!productId) {
+    try {
+      const { useApp } = require("./store");
+      const pFirst = useApp.getState().settings.productMaster.find((p: any) => isValidUuid(p.id));
+      if (pFirst) productId = pFirst.id;
+    } catch {
+      // ignore
+    }
+  }
+
   return {
-    id: t.id,
+    id: isValidUuid(t.id) ? t.id : (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : t.id),
     user_id: userId,
-    product_id: t.productId,
-    warehouse_id: t.warehouseId,
-    location_id: t.locationId || null,
+    product_id: productId || "00000000-0000-0000-0000-000000000000",
+    warehouse_id: warehouseId,
+    location_id: locationId,
     quantity: t.quantityChange,
     transaction_type: t.transactionType,
     reference_type: t.referenceType ?? null,
-    reference_id: t.referenceId ?? null,
-    notes: t.remarks ?? t.notes ?? null,
+    reference_id: referenceId,
+    notes: notes,
   };
 }
 

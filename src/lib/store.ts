@@ -280,26 +280,32 @@ export const useApp = create<AppState>()((set, get) => ({
       // Deducts qty from batches (productId + warehouse + location) in FIFO order.
       // Starts from preferredBatchId (the one the user/auto-pick selected), then
       // spills to older batches. Never allows any batch to go below zero.
-      const deductFIFO = (
+const deductFIFO = (
         productId: string,
         qty: number,
-        whId: string,
-        locId: string,
-        refType: string,
-        referenceId: string,
+        whId?: string,
+        locId?: string,
+        refType: string = "INVOICE_SALE",
+        referenceId: string = "",
         preferredBatchId?: string,
       ) => {
         if (qty <= 0) return;
 
-        // Take a snapshot of eligible batches (with stock > 0) at deduction time
+        // Take a snapshot of eligible batches (with stock > 0)
         let batches = nextStock.filter(
           (x) =>
             x.productId === productId &&
-            x.warehouseId === whId &&
-            x.locationId === locId &&
+            (whId ? x.warehouseId === whId : true) &&
+            (locId ? x.locationId === locId : true) &&
             x.quantity > 0 &&
             x.id !== undefined,
         );
+        // Fallback: if whId/locId didn't match any batches, take any batch for this product
+        if (batches.length === 0) {
+          batches = nextStock.filter(
+            (x) => x.productId === productId && x.quantity > 0 && x.id !== undefined,
+          );
+        }
         if (batches.length === 0) return;
 
         // Sort: preferred batch first, then FIFO (oldest purchaseDate first)
@@ -314,58 +320,91 @@ export const useApp = create<AppState>()((set, get) => ({
         let remaining = qty;
         for (const batch of batches) {
           if (remaining <= 0) break;
-          // Re-read the current quantity from nextStock (may have changed in prior loops)
-          const currentQty = nextStock.find((x) => x.id === batch.id)?.quantity ?? 0;
+          const currentBatch = nextStock.find((x) => x.id === batch.id);
+          const currentQty = currentBatch?.quantity ?? 0;
           const canTake = Math.min(currentQty, remaining);
           if (canTake <= 0) continue;
-          applySingleBatchDelta(batch.id!, -canTake, productId, whId, locId, refType, referenceId);
+          applySingleBatchDelta(
+            batch.id!,
+            -canTake,
+            productId,
+            currentBatch?.warehouseId || whId || "",
+            currentBatch?.locationId || locId || "",
+            refType,
+            referenceId,
+          );
           remaining -= canTake;
         }
-        // remaining > 0 means insufficient stock — validation already blocked this case
       };
 
-      // ─── Revert helper (edit/delete) ────────────────────────────────────────
-      // Restores qty to the exact batch tracked in stockBatchId (new invoices),
-      // or falls back to first-found batch for legacy invoices without batch tracking.
       const revertBatch = (
         productId: string,
         qty: number,
-        whId: string,
-        locId: string,
-        refType: string,
-        referenceId: string,
+        whId?: string,
+        locId?: string,
+        refType: string = "INVOICE_EDIT_REVERT",
+        referenceId: string = "",
         preferredBatchId?: string,
       ) => {
         if (qty <= 0) return;
         if (preferredBatchId) {
           const bIdx = nextStock.findIndex((x) => x.id === preferredBatchId);
           if (bIdx !== -1) {
-            applySingleBatchDelta(preferredBatchId, qty, productId, whId, locId, refType, referenceId);
+            const b = nextStock[bIdx];
+            applySingleBatchDelta(
+              preferredBatchId,
+              qty,
+              productId,
+              b.warehouseId || whId || "",
+              b.locationId || locId || "",
+              refType,
+              referenceId,
+            );
             return;
           }
         }
-        // Fallback for legacy invoices
-        const fallback = nextStock.find(
-          (x) => x.productId === productId && x.warehouseId === whId && x.locationId === locId,
-        );
+        // Fallback: match by product and optionally warehouse/location, or any batch of this product
+        const fallback =
+          nextStock.find(
+            (x) => x.productId === productId && (!whId || x.warehouseId === whId) && (!locId || x.locationId === locId),
+          ) || nextStock.find((x) => x.productId === productId);
         if (fallback?.id) {
-          applySingleBatchDelta(fallback.id, qty, productId, whId, locId, refType, referenceId);
+          applySingleBatchDelta(
+            fallback.id,
+            qty,
+            productId,
+            fallback.warehouseId || whId || "",
+            fallback.locationId || locId || "",
+            refType,
+            referenceId,
+          );
         }
       };
 
+      // Helper to find active product first, then inactive fallback
+      const findProduct = (item: { productId?: string; description: string }) => {
+        return (
+          (item.productId ? s.settings.productMaster.find((x) => x.id === item.productId) : undefined) ||
+          s.settings.productMaster.find(
+            (x) => x.active !== false && x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
+          ) ||
+          s.settings.productMaster.find(
+            (x) => x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
+          )
+        );
+      };
+
       // ─── Revert old invoice stock (edit path) ──────────────────────────────
-      if (oldInv && !oldInv.isDraft && oldInv.lifecycle !== "CANCELLED" && oldInv.dispatchWarehouseId && oldInv.dispatchLocationId) {
+      if (oldInv && !oldInv.isDraft && oldInv.lifecycle !== "CANCELLED") {
         for (const item of oldInv.items) {
           if (!item.quantity) continue;
-          const p = s.settings.productMaster.find(
-            (x) => (item.productId && x.id === item.productId) || x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
-          );
+          const p = findProduct(item);
           if (!p) continue;
           revertBatch(
             p.id,
             item.quantity,
-            oldInv.dispatchWarehouseId,
-            oldInv.dispatchLocationId,
+            item.warehouseId || oldInv.dispatchWarehouseId,
+            item.warehouseId ? undefined : oldInv.dispatchLocationId,
             "INVOICE_EDIT_REVERT",
             inv.id,
             item.stockBatchId,
@@ -374,18 +413,16 @@ export const useApp = create<AppState>()((set, get) => ({
       }
 
       // ─── Apply new invoice deductions (FIFO spill-over) ────────────────────
-      if (!inv.isDraft && inv.lifecycle !== "CANCELLED" && inv.dispatchWarehouseId && inv.dispatchLocationId) {
+      if (!inv.isDraft && inv.lifecycle !== "CANCELLED") {
         for (const item of inv.items) {
           if (!item.quantity) continue;
-          const p = s.settings.productMaster.find(
-            (x) => (item.productId && x.id === item.productId) || x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
-          );
+          const p = findProduct(item);
           if (!p) continue;
           deductFIFO(
             p.id,
             item.quantity,
-            inv.dispatchWarehouseId,
-            inv.dispatchLocationId,
+            item.warehouseId || inv.dispatchWarehouseId,
+            item.warehouseId ? undefined : inv.dispatchLocationId,
             "INVOICE_SALE",
             inv.id,
             item.stockBatchId,
@@ -404,24 +441,30 @@ export const useApp = create<AppState>()((set, get) => ({
       const nextTxns = [...s.inventoryTransactions];
       const now = new Date().toISOString();
 
-      if (inv && !inv.isDraft && inv.lifecycle !== "CANCELLED" && inv.dispatchWarehouseId && inv.dispatchLocationId) {
+      if (inv && !inv.isDraft && inv.lifecycle !== "CANCELLED") {
         for (const item of inv.items) {
           if (!item.quantity) continue;
-          const p = s.settings.productMaster.find(
-            (x) => (item.productId && x.id === item.productId) || x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
-          );
+          const p =
+            (item.productId ? s.settings.productMaster.find((x) => x.id === item.productId) : undefined) ||
+            s.settings.productMaster.find(
+              (x) => x.active !== false && x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
+            ) ||
+            s.settings.productMaster.find(
+              (x) => x.description.trim().toLowerCase() === item.description.trim().toLowerCase(),
+            );
           if (!p) continue;
 
           // Restore to the exact batch that was deducted (tracked in stockBatchId),
-          // or fall back to first-found batch for legacy invoices without batch tracking.
-          const targetBatch = item.stockBatchId
-            ? nextStock.find((x) => x.id === item.stockBatchId)
-            : nextStock.find(
-                (x) =>
-                  x.productId === p.id &&
-                  x.warehouseId === inv.dispatchWarehouseId &&
-                  x.locationId === inv.dispatchLocationId,
-              );
+          // or fall back to first-found batch for this product.
+          const targetBatch =
+            (item.stockBatchId ? nextStock.find((x) => x.id === item.stockBatchId) : undefined) ||
+            nextStock.find(
+              (x) =>
+                x.productId === p.id &&
+                (!inv.dispatchWarehouseId || x.warehouseId === inv.dispatchWarehouseId) &&
+                (!inv.dispatchLocationId || x.locationId === inv.dispatchLocationId),
+            ) ||
+            nextStock.find((x) => x.productId === p.id);
 
           if (!targetBatch?.id) continue;
 
@@ -437,8 +480,8 @@ export const useApp = create<AppState>()((set, get) => ({
           const txn: InventoryTransaction = {
             id: newId(),
             productId: p.id,
-            warehouseId: inv.dispatchWarehouseId,
-            locationId: inv.dispatchLocationId,
+            warehouseId: targetBatch.warehouseId,
+            locationId: targetBatch.locationId,
             quantityChange: item.quantity,
             transactionType: "IN",
             referenceType: "INVOICE_DELETE_REVERT",
@@ -456,7 +499,7 @@ export const useApp = create<AppState>()((set, get) => ({
         inventoryTransactions: nextTxns,
       };
     }),
-  nextInvoiceNumber: () => {
+    nextInvoiceNumber: () => {
     const { invoicePrefix, nextInvoiceNumber, invoiceDigits } = get().settings;
     return `${invoicePrefix}-${String(nextInvoiceNumber).padStart(invoiceDigits || 4, "0")}`;
   },

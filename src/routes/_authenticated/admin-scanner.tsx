@@ -257,10 +257,12 @@ function AdminScannerPage() {
       insertInventoryTransaction(txn);
     } else {
       // Generic adjustment (not recommended in new arch, but kept for fallback)
+      const fallbackWh = warehouses[0]?.id || "2b35e155-b463-4b35-89c9-909e4a3a9079";
+      const fallbackLoc = warehouses[0]?.locations?.[0]?.id;
       const txn: InventoryTransaction = {
         productId: scannedProduct.id,
-        warehouseId: "MAIN",
-        locationId: "DEFAULT",
+        warehouseId: fallbackWh,
+        locationId: fallbackLoc,
         quantityChange: change,
         transactionType: adjustmentType,
         notes: adjustmentNote || `Adjusted Master via Admin Scanner`,

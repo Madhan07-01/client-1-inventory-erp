@@ -49,7 +49,7 @@ function buildDeliveryChallanHtml(invoice: Invoice): string {
   const itemsHtml = invoice.items
     .map((item, index) => {
       const quantity = item.quantity ?? 0;
-      const unit = (item as any).unit || "NOS";
+      const unit = ((item as any).unit && String((item as any).unit).trim()) ? String((item as any).unit).trim() : "KGS";
       const qtyText = quantity ? `${quantity} ${unit}` : "";
       return `<tr>
         <td>${index + 1}</td>

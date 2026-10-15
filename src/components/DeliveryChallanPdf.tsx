@@ -46,6 +46,7 @@ export async function printDeliveryChallanPdf(invoice: Invoice) {
 }
 
 function buildDeliveryChallanHtml(invoice: Invoice): string {
+  const totalWeight = invoice.weight || invoice.items.reduce((sum, it) => sum + (it.quantity || 0), 0).toString();
   const itemsHtml = invoice.items
     .map((item, index) => {
       const quantity = item.quantity ?? 0;
@@ -76,7 +77,7 @@ function buildDeliveryChallanHtml(invoice: Invoice): string {
 
   if (invoice.transportMode) infoRows.push({ label: "Transport", value: invoice.transportMode });
   if (invoice.packages) infoRows.push({ label: "Packages", value: String(invoice.packages) });
-  if (invoice.weight) infoRows.push({ label: "Weight", value: String(invoice.weight) });
+  infoRows.push({ label: "Weight", value: `${totalWeight} KGS` });
 
   const infoRowsHtml = infoRows
     .map(
@@ -192,6 +193,12 @@ function buildDeliveryChallanHtml(invoice: Invoice): string {
           </tr>
         </thead>
         <tbody>${itemsHtml}</tbody>
+        <tfoot>
+          <tr style="font-weight:700;border-top:2px solid #cfd6dd;">
+            <td colspan="2" style="text-align:right;padding:8px 6px;">Total Weight</td>
+            <td class="right" style="padding:8px 6px;">${totalWeight} KGS</td>
+          </tr>
+        </tfoot>
       </table>
 
       <div class="bottom">

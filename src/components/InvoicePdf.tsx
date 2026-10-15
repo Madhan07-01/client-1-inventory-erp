@@ -65,18 +65,22 @@ export async function downloadInvoicePdf(invoice: Invoice) {
 
   try {
     await new Promise<void>((resolve, reject) => {
-      iframe.addEventListener("load", () => resolve(), { once: true });
-      iframe.addEventListener("error", () => reject(new Error("iframe load failed")), {
-        once: true,
-      });
       const doc = iframe.contentDocument;
       if (!doc) {
         reject(new Error("iframe document unavailable"));
         return;
       }
+      const done = () => resolve();
+      iframe.addEventListener("load", done, { once: true });
+      iframe.addEventListener("error", () => reject(new Error("iframe load failed")), {
+        once: true,
+      });
       doc.open();
       doc.write(html);
       doc.close();
+      // Chromium may not fire 'load' after doc.write/close — resolve immediately if ready
+      if (doc.readyState === "complete") done();
+      else setTimeout(done, 1500);
     });
 
     const idoc = iframe.contentDocument!;
@@ -205,7 +209,7 @@ function buildInvoicePrintHtml(invoice: Invoice): string {
   if (invoice.ewayBillNumber) infoRows.push({ label: "E-way Bill", value: invoice.ewayBillNumber });
   if (invoice.transportMode) infoRows.push({ label: "Transport", value: invoice.transportMode });
   if (invoice.packages) infoRows.push({ label: "Packages", value: String(invoice.packages) });
-  if (invoice.weight) infoRows.push({ label: "Weight", value: String(invoice.weight) });
+  if (invoice.weight) infoRows.push({ label: "Weight", value: `${invoice.weight} KGS` });
 
   const infoRowsHtml = infoRows
     .map(

@@ -220,17 +220,23 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
 
   const isLocked = inv.lifecycle === "CANCELLED";
 
+  const previousQtyRef = useRef<number | null>(null);
+
   useEffect(() => {
     setInv(initial);
+    previousQtyRef.current = null;
   }, [initial.id]);
-
-  const previousQtyRef = useRef<number>(initial.items.reduce((sum, it) => sum + (it.quantity || 0), 0));
 
   useEffect(() => {
     const totalQty = inv.items.reduce((sum, it) => sum + (it.quantity || 0), 0);
-    if (totalQty !== previousQtyRef.current) {
+    if (previousQtyRef.current === null) {
       previousQtyRef.current = totalQty;
-      setInv((s) => ({ ...s, weight: totalQty.toString() }));
+      if (!inv.weight && totalQty > 0) {
+        setInv((s) => ({ ...s, weight: totalQty.toString() }));
+      }
+    } else if (totalQty !== previousQtyRef.current) {
+      previousQtyRef.current = totalQty;
+      setInv((s) => ({ ...s, weight: totalQty > 0 ? totalQty.toString() : "" }));
     }
   }, [inv.items]);
 
@@ -1019,10 +1025,11 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Weight</Label>
+                <Label className="text-xs text-muted-foreground">Weight (KGS)</Label>
                 <Input
-                  placeholder="Enter weight"
+                  placeholder="Auto weight"
                   value={inv.weight ?? ""}
+                  disabled={isLocked}
                   onChange={(e) => patch({ weight: e.target.value })}
                 />
               </div>
@@ -1513,21 +1520,6 @@ export function InvoiceEditor({ initial, mode }: { initial: Invoice; mode: "crea
             <Row label="Grand Total" value={formatINR(totals.roundedTotal)} bold />
             <div className="text-xs text-muted-foreground italic">
               {numberToIndianWords(totals.roundedTotal)}
-            </div>
-            <div className="h-px bg-border my-2" />
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Total Weight</span>
-              <div className="flex items-center gap-1">
-                <Input
-                  type="number"
-                  className="w-24 h-7 text-right text-sm"
-                  value={inv.weight ?? ""}
-                  disabled={isLocked}
-                  onChange={(e) => patch({ weight: e.target.value })}
-                  placeholder="0"
-                />
-                <span className="text-xs text-muted-foreground">KGS</span>
-              </div>
             </div>
           </div>
         </div>

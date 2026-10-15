@@ -159,17 +159,23 @@ export function QuotationEditor({
   const [batchPickerItemId, setBatchPickerItemId] = useState<string | null>(null);
   const [batchPickerProductId, setBatchPickerProductId] = useState<string | null>(null);
 
+  const previousQtyRef = useRef<number | null>(null);
+
   useEffect(() => {
     setQ(initial);
+    previousQtyRef.current = null;
   }, [initial.id]);
-
-  const previousQtyRef = useRef<number>(initial.items.reduce((sum, it) => sum + (it.quantity || 0), 0));
 
   useEffect(() => {
     const totalQty = q.items.reduce((sum, it) => sum + (it.quantity || 0), 0);
-    if (totalQty !== previousQtyRef.current) {
+    if (previousQtyRef.current === null) {
       previousQtyRef.current = totalQty;
-      setQ((s) => ({ ...s, weight: totalQty.toString() }));
+      if (!q.weight && totalQty > 0) {
+        setQ((s) => ({ ...s, weight: totalQty.toString() }));
+      }
+    } else if (totalQty !== previousQtyRef.current) {
+      previousQtyRef.current = totalQty;
+      setQ((s) => ({ ...s, weight: totalQty > 0 ? totalQty.toString() : "" }));
     }
   }, [q.items]);
 
@@ -880,6 +886,29 @@ export function QuotationEditor({
                 </label>
               </div>
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs text-muted-foreground">Packages</Label>
+                <Input
+                  type="number"
+                  value={q.packages ?? ""}
+                  placeholder="Enter packages"
+                  disabled={isLocked}
+                  onChange={(e) =>
+                    patch({ packages: e.target.value === "" ? undefined : Number(e.target.value) })
+                  }
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Weight (KGS)</Label>
+                <Input
+                  placeholder="Auto weight"
+                  value={q.weight ?? ""}
+                  disabled={isLocked}
+                  onChange={(e) => patch({ weight: e.target.value })}
+                />
+              </div>
+            </div>
           </div>
         </Section>
       </div>
@@ -1209,21 +1238,6 @@ export function QuotationEditor({
             <Row label="Grand Total" value={formatINR(totals.roundedTotal)} bold />
             <div className="text-xs text-muted-foreground italic">
               {numberToIndianWords(totals.roundedTotal)}
-            </div>
-            <div className="h-px bg-border my-2" />
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Total Weight</span>
-              <div className="flex items-center gap-1">
-                <Input
-                  type="number"
-                  className="w-24 h-7 text-right text-sm"
-                  value={q.weight ?? ""}
-                  disabled={isLocked}
-                  onChange={(e) => patch({ weight: e.target.value })}
-                  placeholder="0"
-                />
-                <span className="text-xs text-muted-foreground">KGS</span>
-              </div>
             </div>
           </div>
         </div>
